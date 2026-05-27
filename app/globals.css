@@ -1,0 +1,85 @@
+@import url("https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap");
+@import "tailwindcss";
+
+:root {
+  --navy: #0b1f3a;
+  --navy-dark: #071528;
+  --gold: #c9a84c;
+  --gold-light: #e2c97e;
+  --parchment: #f7f3ec;
+  --cream: #fdfaf4/90;
+  --charcoal: #1c2b3a;
+}
+
+body {
+  background: color-mix(in srgb, var(--cream) 96%, transparent);
+  color: var(--charcoal);
+  font-family: "Inter", sans-serif;
+}
+
+.font-edc-serif {
+  font-family: "Cormorant Garamond", serif;
+}
+
+.section-label {
+  color: var(--gold);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+}
+
+.gold-divider {
+  height: 2px;
+  width: 4rem;
+  background: linear-gradient(to right, transparent, var(--gold), transparent);
+}
+
+.btn-gold {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--gold);
+  color: var(--navy-dark);
+  padding: 1rem 1.5rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  transition: 0.25s ease;
+}
+
+.btn-gold:hover {
+  background: var(--gold-light);
+}
+
+.btn-outline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(201, 168, 76, 0.7);
+  color: var(--gold);
+  padding: 1rem 1.5rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  transition: 0.25s ease;
+}
+
+.btn-outline:hover {
+  background: rgba(201, 168, 76, 0.1);
+}
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background-image: url("/logo.png");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 520px auto;
+  opacity: 0.035;
+  filter: blur(1.5px);
+  pointer-events: none;
+  z-index: -1;
+}
