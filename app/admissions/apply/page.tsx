@@ -15,32 +15,26 @@ export default async function AdmissionApplicationPage() {
 
     const supabase = await createClient();
 
-    const fullName = formData.get("full_name") as string;
-    const email = formData.get("email") as string;
-    const phone = formData.get("phone") as string;
-    const country = formData.get("country") as string;
-    const location = formData.get("location") as string;
     const intakeBatchId = formData.get("intake_batch_id") as string;
-    const ministryBackground = formData.get("ministry_background") as string;
-    const salvationExperience = formData.get("salvation_experience") as string;
-    const reasonForApplying = formData.get("reason_for_applying") as string;
 
-    const selectedIntake = intakes?.find(
-      (intake: any) => intake.id === intakeBatchId
-    );
+    const { data: selectedIntake } = await supabase
+      .from("intake_batches")
+      .select("entry_level, entry_semester")
+      .eq("id", intakeBatchId)
+      .maybeSingle();
 
     const { error } = await supabase.from("admissions").insert({
-      full_name: fullName,
-      email,
-      phone,
-      country,
-      location,
+      full_name: formData.get("full_name") as string,
+      email: formData.get("email") as string,
+      phone: formData.get("phone") as string,
+      country: formData.get("country") as string,
+      location: formData.get("location") as string,
       intake_batch_id: intakeBatchId,
       desired_level: selectedIntake?.entry_level || "Level 1",
       desired_semester: selectedIntake?.entry_semester || "Semester 1",
-      ministry_background: ministryBackground,
-      salvation_experience: salvationExperience,
-      reason_for_applying: reasonForApplying,
+      ministry_background: formData.get("ministry_background") as string,
+      salvation_experience: formData.get("salvation_experience") as string,
+      reason_for_applying: formData.get("reason_for_applying") as string,
       application_status: "pending",
       updated_at: new Date().toISOString(),
     });
