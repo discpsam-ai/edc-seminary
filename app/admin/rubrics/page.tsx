@@ -128,10 +128,11 @@ export default async function AdminRubricsPage() {
               />
 
               <textarea
-                name="description"
-                placeholder="Rubric description..."
-                className="min-h-32 border border-[#c9a84c]/30 bg-[#fdfaf4]/90 p-4 outline-none"
-              />
+  name="description"
+  placeholder="Rubric description..."
+  spellCheck={false}
+  className="min-h-32 border border-[#c9a84c]/30 bg-[#fdfaf4]/90 p-4 outline-none transition"
+/>
 
               <button type="submit" className="btn-gold">
                 Create Rubric

@@ -190,10 +190,11 @@ export default async function AdminCertificatesPage() {
               </select>
 
               <textarea
-                name="remarks"
-                placeholder="Certificate remarks..."
-                className="min-h-32 border border-[#c9a84c]/30 bg-[#fdfaf4]/90 p-4 outline-none"
-              />
+  name="remarks"
+  placeholder="Certificate remarks..."
+  spellCheck={false}
+  className="min-h-32 border border-[#c9a84c]/30 bg-[#fdfaf4]/90 p-4 outline-none transition"
+/>
 
               <button type="submit" className="btn-gold">
                 Issue Certificate

@@ -101,16 +101,18 @@ export default async function InstructorApplicationPage() {
           />
 
           <textarea
-            name="teaching_experience"
-            placeholder="Describe your teaching experience..."
-            className="min-h-32 border border-[#c9a84c]/30 bg-[#fdfaf4]/90 p-4 outline-none"
-          />
+  name="teaching_experience"
+  placeholder="Describe your teaching experience..."
+  spellCheck={false}
+  className="min-h-32 border border-[#c9a84c]/30 bg-[#fdfaf4]/90 p-4 outline-none transition"
+/>
 
-          <textarea
-            name="ministry_background"
-            placeholder="Describe your ministry background..."
-            className="min-h-32 border border-[#c9a84c]/30 bg-[#fdfaf4]/90 p-4 outline-none"
-          />
+<textarea
+  name="ministry_background"
+  placeholder="Describe your ministry background..."
+  spellCheck={false}
+  className="min-h-32 border border-[#c9a84c]/30 bg-[#fdfaf4]/90 p-4 outline-none transition"
+/>
 
           <textarea
             name="preferred_courses"

@@ -215,11 +215,12 @@ export default async function AssignmentSubmissionsPage({
                   />
 
                   <textarea
-                    name="feedback"
-                    defaultValue={submission.feedback || ""}
-                    placeholder="Instructor feedback..."
-                    className="min-h-32 border border-[#c9a84c]/30 bg-[#fdfaf4]/90 p-4 outline-none"
-                  />
+  name="feedback"
+  defaultValue={submission.feedback || ""}
+  placeholder="Instructor feedback..."
+  spellCheck={false}
+  className="min-h-32 border border-[#c9a84c]/30 bg-[#fdfaf4]/90 p-4 outline-none transition"
+/>
 
                   <button type="submit" className="btn-gold">
                     Save Grade

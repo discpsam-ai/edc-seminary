@@ -173,10 +173,11 @@ export default async function CreateExamPage() {
             </select>
 
             <textarea
-              name="description"
-              placeholder="Assessment description / instruction"
-              className="min-h-32 border border-[#c9a84c]/30 bg-[#fdfaf4]/90 p-4 outline-none"
-            />
+  name="description"
+  placeholder="Assessment description / instruction"
+  spellCheck={false}
+  className="min-h-32 border border-[#c9a84c]/30 bg-[#fdfaf4]/90 p-4 outline-none transition"
+/>
 
             <div className="grid gap-5 md:grid-cols-2">
               <input

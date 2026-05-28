@@ -106,11 +106,12 @@ export default async function AdminExamQuestionsPage({ params }: PageProps) {
               </select>
 
               <textarea
-                name="question_text"
-                required
-                placeholder="Question text..."
-                className="min-h-32 border border-[#c9a84c]/30 bg-[#fdfaf4]/90 p-4 outline-none"
-              />
+  name="question_text"
+  required
+  placeholder="Question text..."
+  spellCheck={false}
+  className="min-h-32 border border-[#c9a84c]/30 bg-[#fdfaf4]/90 p-4 outline-none transition"
+/>
 
               <div className="grid gap-4 md:grid-cols-2">
                 <input

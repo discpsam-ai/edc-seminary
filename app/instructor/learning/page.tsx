@@ -210,11 +210,12 @@ export default async function InstructorLearningPage() {
                   className="border border-[#c9a84c]/30 bg-[#fdfaf4]/90 p-4 outline-none"
                 />
 
-                <textarea
-                  name="description"
-                  placeholder="Module description..."
-                  className="min-h-32 border border-[#c9a84c]/30 bg-[#fdfaf4]/90 p-4 outline-none"
-                />
+               <textarea
+  name="description"
+  placeholder="Module description..."
+  spellCheck={false}
+  className="min-h-32 border border-[#c9a84c]/30 bg-[#fdfaf4]/90 p-4 outline-none transition"
+/>
 
                 <button type="submit" className="btn-gold">
                   Create Module
@@ -325,11 +326,12 @@ export default async function InstructorLearningPage() {
                   className="border border-[#c9a84c]/30 bg-[#fdfaf4]/90 p-4 outline-none"
                 />
 
-                <textarea
-                  name="description"
-                  placeholder="Lesson description..."
-                  className="min-h-32 border border-[#c9a84c]/30 bg-[#fdfaf4]/90 p-4 outline-none"
-                />
+               <textarea
+  name="description"
+  placeholder="Lesson description..."
+  spellCheck={false}
+  className="min-h-32 border border-[#c9a84c]/30 bg-[#fdfaf4]/90 p-4 outline-none transition"
+/>
 
                 <button type="submit" className="btn-gold">
                   Create Lesson

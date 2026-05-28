@@ -143,12 +143,12 @@ export default async function AdminIntakesPage() {
                 <option value="paused">Paused</option>
               </select>
 
-              <textarea
-                name="description"
-                placeholder="Short intake description..."
-                className="min-h-32 border border-[#c9a84c]/30 bg-[#fdfaf4]/90 p-4 outline-none"
-              />
-
+             <textarea
+  name="description"
+  placeholder="Short intake description..."
+  spellCheck={false}
+  className="min-h-32 border border-[#c9a84c]/30 bg-[#fdfaf4]/90 p-4 outline-none transition"
+/>
               <button type="submit" className="btn-gold">
                 Create Intake
               </button>
