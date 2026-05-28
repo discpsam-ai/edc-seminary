@@ -11,6 +11,7 @@ export default function AdmissionPage() {
 
     let passportUrl = "";
 
+    // Upload passport
     if (passportFile && passportFile.size > 0) {
       const fileExt = passportFile.name.split(".").pop();
 
@@ -37,6 +38,7 @@ export default function AdmissionPage() {
       passportUrl = publicUrl;
     }
 
+    // Save application
     const { error } = await supabase
       .from("admission_applications")
       .insert({
@@ -45,13 +47,16 @@ export default function AdmissionPage() {
         phone: formData.get("phone") as string,
 
         gender: formData.get("gender") as string,
-        date_of_birth: formData.get("date_of_birth") as string,
+
+        // FIXED DATE ISSUE
+        date_of_birth: formData.get("date_of_birth") || null,
 
         address: formData.get("address") as string,
         state: formData.get("state") as string,
         country: formData.get("country") as string,
 
         previous_school: formData.get("previous_school") as string,
+
         educational_background: formData.get(
           "educational_background"
         ) as string,
@@ -72,6 +77,8 @@ export default function AdmissionPage() {
       });
 
     if (error) {
+      console.error("Admission Error:", error);
+
       throw new Error(error.message);
     }
 
