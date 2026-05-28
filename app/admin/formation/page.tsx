@@ -1,24 +1,54 @@
 import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
 
+type OpenSemester = {
+  id: string;
+  semester_name: string;
+  is_open: boolean;
+};
+
 export default async function FormationPage() {
   const supabase = await createClient();
 
+  const { data: activeSession } = await supabase
+    .from("academic_sessions")
+    .select(
+      `
+      id,
+      session_name,
+      is_active,
+      session_semesters (
+        id,
+        semester_name,
+        is_open
+      )
+    `
+    )
+    .eq("is_active", true)
+    .maybeSingle();
+
+  const openSemesters =
+    activeSession?.session_semesters?.filter(
+      (semester: OpenSemester) => semester.is_open
+    ) || [];
+
   const { data: students } = await supabase
     .from("profiles")
-    .select("id, full_name, email, level")
+    .select("id, full_name, email, level, current_semester")
     .or("role.eq.student,roles.cs.{student}")
     .order("full_name", { ascending: true });
 
   const { data: records, error } = await supabase
     .from("formation_records")
-    .select(`
+    .select(
+      `
       *,
       profiles:student_id (
         full_name,
         email
       )
-    `)
+    `
+    )
     .order("created_at", { ascending: false });
 
   async function saveFormationRecord(formData: FormData) {
@@ -27,29 +57,31 @@ export default async function FormationPage() {
     const supabase = await createClient();
 
     const studentId = formData.get("student_id") as string;
+    const academicSession = formData.get("academic_session") as string;
+    const semester = formData.get("semester") as string;
 
     const prayerConsistency = Number(
-      formData.get("prayer_consistency")
+      formData.get("prayer_consistency") || 0
     );
 
     const attendanceScore = Number(
-      formData.get("attendance_score")
+      formData.get("attendance_score") || 0
     );
 
     const discipleshipParticipation = Number(
-      formData.get("discipleship_participation")
+      formData.get("discipleship_participation") || 0
     );
 
     const characterScore = Number(
-      formData.get("character_score")
+      formData.get("character_score") || 0
     );
 
     const ministryService = Number(
-      formData.get("ministry_service")
+      formData.get("ministry_service") || 0
     );
 
     const leadershipConduct = Number(
-      formData.get("leadership_conduct")
+      formData.get("leadership_conduct") || 0
     );
 
     const academicStanding = formData.get(
@@ -68,39 +100,33 @@ export default async function FormationPage() {
       "recommendation"
     ) as string;
 
-    const academicSession = formData.get(
-      "academic_session"
-    ) as string;
-
     const {
       data: { user },
     } = await supabase.auth.getUser();
 
-    const { error } = await supabase
-      .from("formation_records")
-      .upsert(
-        {
-          student_id: studentId,
-          prayer_consistency: prayerConsistency,
-          attendance_score: attendanceScore,
-          discipleship_participation:
-            discipleshipParticipation,
-          character_score: characterScore,
-          ministry_service: ministryService,
-          leadership_conduct: leadershipConduct,
-          academic_standing: academicStanding,
-          spiritual_standing: spiritualStanding,
-          commissioning_status: commissioningStatus,
-          recommendation: recommendation,
-          academic_session: academicSession,
-          reviewed_by: user?.id,
-          reviewed_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        },
-        {
-          onConflict: "student_id,academic_session",
-        }
-      );
+    const { error } = await supabase.from("formation_records").upsert(
+      {
+        student_id: studentId,
+        prayer_consistency: prayerConsistency,
+        attendance_score: attendanceScore,
+        discipleship_participation: discipleshipParticipation,
+        character_score: characterScore,
+        ministry_service: ministryService,
+        leadership_conduct: leadershipConduct,
+        academic_standing: academicStanding,
+        spiritual_standing: spiritualStanding,
+        commissioning_status: commissioningStatus,
+        recommendation,
+        academic_session: academicSession,
+        semester,
+        reviewed_by: user?.id,
+        reviewed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      {
+        onConflict: "student_id,academic_session,semester",
+      }
+    );
 
     if (error) {
       throw new Error(error.message);
@@ -122,9 +148,8 @@ export default async function FormationPage() {
           </h1>
 
           <p className="mt-3 max-w-3xl text-[#1c2b3a]/70">
-            Evaluate spiritual formation, discipleship,
-            ministry conduct, and commissioning readiness
-            for EDC students.
+            Evaluate spiritual formation, discipleship, ministry conduct, and
+            commissioning readiness for EDC students.
           </p>
         </div>
 
@@ -134,26 +159,64 @@ export default async function FormationPage() {
               Formation Evaluation
             </h2>
 
-            <form
-              action={saveFormationRecord}
-              className="mt-8 grid gap-5"
-            >
+            <div className="mt-5 border border-[#c9a84c]/20 bg-[#fdfaf4] p-4">
+              <p className="text-sm font-semibold text-[#0b1f3a]">
+                Active Session:{" "}
+                {activeSession?.session_name || "No Active Session"}
+              </p>
+
+              <div className="mt-2 space-y-1">
+                {openSemesters.length > 0 ? (
+                  openSemesters.map((semester: OpenSemester) => (
+                    <p
+                      key={semester.id}
+                      className="text-sm font-medium text-green-700"
+                    >
+                      {semester.semester_name} Open
+                    </p>
+                  ))
+                ) : (
+                  <p className="text-sm text-red-700">
+                    No semester is currently open.
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <form action={saveFormationRecord} className="mt-8 grid gap-5">
+              <input
+                type="hidden"
+                name="academic_session"
+                value={activeSession?.session_name || ""}
+              />
+
               <select
                 name="student_id"
                 required
                 className="border border-[#c9a84c]/30 bg-[#fdfaf4] p-4 outline-none"
               >
-                <option value="">
-                  Select Student
-                </option>
+                <option value="">Select Student</option>
 
                 {students?.map((student: any) => (
-                  <option
-                    key={student.id}
-                    value={student.id}
-                  >
-                    {student.full_name} —{" "}
-                    {student.email}
+                  <option key={student.id} value={student.id}>
+                    {student.full_name} — {student.email}
+                    {student.current_semester
+                      ? ` — ${student.current_semester}`
+                      : ""}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                name="semester"
+                required
+                className="border border-[#c9a84c]/30 bg-[#fdfaf4] p-4 outline-none"
+              >
+                <option value="">Select Semester</option>
+
+                {openSemesters.map((semester: OpenSemester) => (
+                  <option key={semester.id} value={semester.semester_name}>
+                    {semester.semester_name}
                   </option>
                 ))}
               </select>
@@ -163,6 +226,8 @@ export default async function FormationPage() {
                   type="number"
                   name="prayer_consistency"
                   placeholder="Prayer Consistency"
+                  min="0"
+                  max="100"
                   className="border border-[#c9a84c]/30 bg-[#fdfaf4] p-4 outline-none"
                 />
 
@@ -170,6 +235,8 @@ export default async function FormationPage() {
                   type="number"
                   name="attendance_score"
                   placeholder="Attendance Score"
+                  min="0"
+                  max="100"
                   className="border border-[#c9a84c]/30 bg-[#fdfaf4] p-4 outline-none"
                 />
               </div>
@@ -179,6 +246,8 @@ export default async function FormationPage() {
                   type="number"
                   name="discipleship_participation"
                   placeholder="Discipleship Participation"
+                  min="0"
+                  max="100"
                   className="border border-[#c9a84c]/30 bg-[#fdfaf4] p-4 outline-none"
                 />
 
@@ -186,6 +255,8 @@ export default async function FormationPage() {
                   type="number"
                   name="character_score"
                   placeholder="Character Score"
+                  min="0"
+                  max="100"
                   className="border border-[#c9a84c]/30 bg-[#fdfaf4] p-4 outline-none"
                 />
               </div>
@@ -195,6 +266,8 @@ export default async function FormationPage() {
                   type="number"
                   name="ministry_service"
                   placeholder="Ministry Service"
+                  min="0"
+                  max="100"
                   className="border border-[#c9a84c]/30 bg-[#fdfaf4] p-4 outline-none"
                 />
 
@@ -202,6 +275,8 @@ export default async function FormationPage() {
                   type="number"
                   name="leadership_conduct"
                   placeholder="Leadership Conduct"
+                  min="0"
+                  max="100"
                   className="border border-[#c9a84c]/30 bg-[#fdfaf4] p-4 outline-none"
                 />
               </div>
@@ -210,74 +285,32 @@ export default async function FormationPage() {
                 name="academic_standing"
                 className="border border-[#c9a84c]/30 bg-[#fdfaf4] p-4 outline-none"
               >
-                <option value="">
-                  Academic Standing
-                </option>
-
-                <option value="excellent">
-                  Excellent
-                </option>
-
-                <option value="good">
-                  Good
-                </option>
-
-                <option value="fair">
-                  Fair
-                </option>
-
-                <option value="poor">
-                  Poor
-                </option>
+                <option value="">Academic Standing</option>
+                <option value="excellent">Excellent</option>
+                <option value="good">Good</option>
+                <option value="fair">Fair</option>
+                <option value="poor">Poor</option>
               </select>
 
               <select
                 name="spiritual_standing"
                 className="border border-[#c9a84c]/30 bg-[#fdfaf4] p-4 outline-none"
               >
-                <option value="">
-                  Spiritual Standing
-                </option>
-
-                <option value="sound">
-                  Sound
-                </option>
-
-                <option value="growing">
-                  Growing
-                </option>
-
-                <option value="unstable">
-                  Unstable
-                </option>
+                <option value="">Spiritual Standing</option>
+                <option value="sound">Sound</option>
+                <option value="growing">Growing</option>
+                <option value="unstable">Unstable</option>
               </select>
 
               <select
                 name="commissioning_status"
                 className="border border-[#c9a84c]/30 bg-[#fdfaf4] p-4 outline-none"
               >
-                <option value="pending">
-                  Pending
-                </option>
-
-                <option value="approved">
-                  Approved
-                </option>
-
-                <option value="under_review">
-                  Under Review
-                </option>
-
-                <option value="not_approved">
-                  Not Approved
-                </option>
+                <option value="pending">Pending</option>
+                <option value="approved">Approved</option>
+                <option value="under_review">Under Review</option>
+                <option value="not_approved">Not Approved</option>
               </select>
-
-              <input
-                name="academic_session"
-                placeholder="Academic Session"
-                className="border border-[#c9a84c]/30 bg-[#fdfaf4] p-4 outline-none"
-              />
 
               <textarea
                 name="recommendation"
@@ -285,10 +318,7 @@ export default async function FormationPage() {
                 className="min-h-40 border border-[#c9a84c]/30 bg-[#fdfaf4] p-4 outline-none"
               />
 
-              <button
-                type="submit"
-                className="btn-gold"
-              >
+              <button type="submit" className="btn-gold">
                 Save Formation Record
               </button>
             </form>
@@ -325,56 +355,46 @@ export default async function FormationPage() {
                         <p className="mt-1 text-sm text-[#1c2b3a]/60">
                           {record.profiles?.email}
                         </p>
+
+                        <p className="mt-2 text-sm font-medium text-[#0b1f3a]">
+                          {record.academic_session || "No Session"}{" "}
+                          {record.semester ? `— ${record.semester}` : ""}
+                        </p>
                       </div>
 
                       <span className="border border-[#c9a84c]/30 bg-white px-4 py-2 text-xs font-bold uppercase tracking-[0.15em] text-[#c9a84c]">
-                        {record.commissioning_status}
+                        {record.commissioning_status || "pending"}
                       </span>
                     </div>
 
                     <div className="mt-5 grid gap-4 sm:grid-cols-2">
                       <p>
-                        Prayer:{" "}
-                        <strong>
-                          {record.prayer_consistency}
-                        </strong>
+                        Prayer: <strong>{record.prayer_consistency}</strong>
                       </p>
 
                       <p>
-                        Attendance:{" "}
-                        <strong>
-                          {record.attendance_score}
-                        </strong>
+                        Attendance: <strong>{record.attendance_score}</strong>
                       </p>
 
                       <p>
                         Discipleship:{" "}
                         <strong>
-                          {
-                            record.discipleship_participation
-                          }
+                          {record.discipleship_participation}
                         </strong>
                       </p>
 
                       <p>
-                        Character:{" "}
-                        <strong>
-                          {record.character_score}
-                        </strong>
+                        Character: <strong>{record.character_score}</strong>
                       </p>
 
                       <p>
                         Ministry Service:{" "}
-                        <strong>
-                          {record.ministry_service}
-                        </strong>
+                        <strong>{record.ministry_service}</strong>
                       </p>
 
                       <p>
                         Leadership Conduct:{" "}
-                        <strong>
-                          {record.leadership_conduct}
-                        </strong>
+                        <strong>{record.leadership_conduct}</strong>
                       </p>
                     </div>
 
@@ -384,8 +404,7 @@ export default async function FormationPage() {
                       </p>
 
                       <p className="mt-3 leading-7 text-[#1c2b3a]/70">
-                        {record.recommendation ||
-                          "No recommendation yet."}
+                        {record.recommendation || "No recommendation yet."}
                       </p>
                     </div>
                   </div>

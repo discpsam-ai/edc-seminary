@@ -1,10 +1,19 @@
 import AdminShell from "@/components/AdminShell";
 import { createClient } from "@/utils/supabase/server";
 
-type OpenSemester = {
+type SessionSemester = {
   id: string;
   semester_name: string;
   is_open: boolean;
+};
+
+type ActiveSession = {
+  id: string;
+  session_name: string;
+  admissions_open: boolean;
+  registration_open: boolean;
+  is_active: boolean;
+  session_semesters?: SessionSemester[];
 };
 
 export default async function AdminDashboardPage() {
@@ -14,7 +23,11 @@ export default async function AdminDashboardPage() {
     .from("academic_sessions")
     .select(
       `
-      *,
+      id,
+      session_name,
+      admissions_open,
+      registration_open,
+      is_active,
       session_semesters (
         id,
         semester_name,
@@ -23,11 +36,11 @@ export default async function AdminDashboardPage() {
     `
     )
     .eq("is_active", true)
-    .single();
+    .maybeSingle<ActiveSession>();
 
   const openSemesters =
     activeSession?.session_semesters?.filter(
-      (semester: OpenSemester) => semester.is_open
+      (semester) => semester.is_open
     ) || [];
 
   const { count: studentsCount } = await supabase
@@ -165,7 +178,7 @@ export default async function AdminDashboardPage() {
 
             <div className="mt-2 space-y-1">
               {openSemesters.length > 0 ? (
-                openSemesters.map((semester: OpenSemester) => (
+                openSemesters.map((semester) => (
                   <p
                     key={semester.id}
                     className="text-sm font-medium text-green-700"
@@ -183,21 +196,33 @@ export default async function AdminDashboardPage() {
 
           <div className="border border-[#c9a84c]/10 bg-[#fdfaf4] p-5">
             <p className="text-sm uppercase tracking-[0.15em] text-[#1c2b3a]/45">
-              Seminary Status
+              Admission Status
             </p>
 
-            <h3 className="mt-3 text-2xl font-semibold text-green-700">
-              Active
+            <h3
+              className={`mt-3 text-2xl font-semibold ${
+                activeSession?.admissions_open
+                  ? "text-green-700"
+                  : "text-red-700"
+              }`}
+            >
+              {activeSession?.admissions_open ? "Open" : "Closed"}
             </h3>
           </div>
 
           <div className="border border-[#c9a84c]/10 bg-[#fdfaf4] p-5">
             <p className="text-sm uppercase tracking-[0.15em] text-[#1c2b3a]/45">
-              Academic System
+              Registration Status
             </p>
 
-            <h3 className="mt-3 text-2xl font-semibold text-[#c9a84c]">
-              Operational
+            <h3
+              className={`mt-3 text-2xl font-semibold ${
+                activeSession?.registration_open
+                  ? "text-green-700"
+                  : "text-red-700"
+              }`}
+            >
+              {activeSession?.registration_open ? "Open" : "Closed"}
             </h3>
           </div>
 

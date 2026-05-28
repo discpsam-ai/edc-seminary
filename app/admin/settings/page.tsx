@@ -1,6 +1,39 @@
 import AdminShell from "@/components/AdminShell";
+import { createClient } from "@/utils/supabase/server";
 
-export default function AdminSettingsPage() {
+type OpenSemester = {
+  id: string;
+  semester_name: string;
+  is_open: boolean;
+};
+
+export default async function AdminSettingsPage() {
+  const supabase = await createClient();
+
+  const { data: activeSession } = await supabase
+    .from("academic_sessions")
+    .select(
+      `
+      id,
+      session_name,
+      admissions_open,
+      registration_open,
+      is_active,
+      session_semesters (
+        id,
+        semester_name,
+        is_open
+      )
+    `
+    )
+    .eq("is_active", true)
+    .maybeSingle();
+
+  const openSemesters =
+    activeSession?.session_semesters?.filter(
+      (semester: OpenSemester) => semester.is_open
+    ) || [];
+
   return (
     <AdminShell
       title="Institution Settings"
@@ -26,18 +59,36 @@ export default function AdminSettingsPage() {
             />
 
             <input
-              defaultValue="2026 Academic Session"
-              className="border border-[#c9a84c]/30 bg-[#fdfaf4] p-4 outline-none"
+              value={activeSession?.session_name || ""}
+              readOnly
+              className="border border-[#c9a84c]/30 bg-[#f7f3ec] p-4 outline-none"
               placeholder="Academic Session"
             />
 
-            <input
-              defaultValue="Semester 1"
-              className="border border-[#c9a84c]/30 bg-[#fdfaf4] p-4 outline-none"
-              placeholder="Current Semester"
-            />
+            <div className="border border-[#c9a84c]/20 bg-[#fdfaf4] p-4">
+              <p className="text-sm font-semibold text-[#0b1f3a]">
+                Open Semesters
+              </p>
 
-            <button type="submit" className="btn-gold">
+              <div className="mt-3 space-y-2">
+                {openSemesters.length > 0 ? (
+                  openSemesters.map((semester: OpenSemester) => (
+                    <div
+                      key={semester.id}
+                      className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-700"
+                    >
+                      {semester.semester_name} Open
+                    </div>
+                  ))
+                ) : (
+                  <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+                    No semester currently open
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <button type="button" className="btn-gold">
               Save Settings
             </button>
           </form>
@@ -49,23 +100,59 @@ export default function AdminSettingsPage() {
           </h2>
 
           <form className="mt-8 grid gap-5">
-            <select className="border border-[#c9a84c]/30 bg-[#fdfaf4] p-4 outline-none">
-              <option>Admissions Status</option>
-              <option>Open</option>
-              <option>Closed</option>
-            </select>
+            <div className="border border-[#c9a84c]/20 bg-[#fdfaf4] p-4">
+              <p className="text-xs uppercase tracking-[0.15em] text-[#1c2b3a]/45">
+                Admissions Status
+              </p>
 
-            <select className="border border-[#c9a84c]/30 bg-[#fdfaf4] p-4 outline-none">
-              <option>Portal Access</option>
-              <option>Enabled</option>
-              <option>Disabled</option>
-            </select>
+              <p
+                className={`mt-2 text-lg font-semibold ${
+                  activeSession?.admissions_open
+                    ? "text-green-700"
+                    : "text-red-700"
+                }`}
+              >
+                {activeSession?.admissions_open ? "Open" : "Closed"}
+              </p>
+            </div>
 
-            <select className="border border-[#c9a84c]/30 bg-[#fdfaf4] p-4 outline-none">
-              <option>Commissioning Access</option>
-              <option>Enabled</option>
-              <option>Restricted</option>
-            </select>
+            <div className="border border-[#c9a84c]/20 bg-[#fdfaf4] p-4">
+              <p className="text-xs uppercase tracking-[0.15em] text-[#1c2b3a]/45">
+                Registration Status
+              </p>
+
+              <p
+                className={`mt-2 text-lg font-semibold ${
+                  activeSession?.registration_open
+                    ? "text-green-700"
+                    : "text-red-700"
+                }`}
+              >
+                {activeSession?.registration_open
+                  ? "Open"
+                  : "Closed"}
+              </p>
+            </div>
+
+            <div className="border border-[#c9a84c]/20 bg-[#fdfaf4] p-4">
+              <p className="text-xs uppercase tracking-[0.15em] text-[#1c2b3a]/45">
+                Portal Access
+              </p>
+
+              <p className="mt-2 text-lg font-semibold text-green-700">
+                Enabled
+              </p>
+            </div>
+
+            <div className="border border-[#c9a84c]/20 bg-[#fdfaf4] p-4">
+              <p className="text-xs uppercase tracking-[0.15em] text-[#1c2b3a]/45">
+                Commissioning Access
+              </p>
+
+              <p className="mt-2 text-lg font-semibold text-[#0b1f3a]">
+                Restricted
+              </p>
+            </div>
 
             <textarea
               defaultValue="Institutional settings and configuration controls for EDC."
@@ -73,7 +160,7 @@ export default function AdminSettingsPage() {
               placeholder="Administrative Notes"
             />
 
-            <button type="submit" className="btn-gold">
+            <button type="button" className="btn-gold">
               Update Configuration
             </button>
           </form>

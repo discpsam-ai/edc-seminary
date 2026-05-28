@@ -6,14 +6,16 @@ export default async function PublishedResultsPage() {
 
   const { data: results, error } = await supabase
     .from("course_results")
-    .select(`
-      *,
-      profiles:student_id (
-        full_name,
-        student_number
-      )
-    `)
-    .order("published_at", { ascending: false });
+.select(`
+  *,
+  profiles:student_id (
+    full_name,
+    student_number
+  )
+`)
+.eq("publication_status", "published")
+.eq("result_visibility", true)
+.order("published_at", { ascending: false });
 
   return (
     <AdminShell

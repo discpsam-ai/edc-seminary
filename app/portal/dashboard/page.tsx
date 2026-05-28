@@ -2,6 +2,12 @@ import PortalShell from "@/components/PortalShell";
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
 
+type OpenSemester = {
+  id: string;
+  semester_name: string;
+  is_open: boolean;
+};
+
 export default async function PortalDashboardPage() {
   const supabase = await createClient();
 
@@ -11,34 +17,111 @@ export default async function PortalDashboardPage() {
 
   if (!user) redirect("/login");
 
-  const { data: profile } =
-    await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", user.id)
-      .single();
+  const { data: activeSession } = await supabase
+    .from("academic_sessions")
+    .select(
+      `
+      id,
+      session_name,
+      admissions_open,
+      registration_open,
+      is_active,
+      session_semesters (
+        id,
+        semester_name,
+        is_open
+      )
+    `
+    )
+    .eq("is_active", true)
+    .maybeSingle();
+
+  const openSemesters =
+    activeSession?.session_semesters?.filter(
+      (semester: OpenSemester) =>
+        semester.is_open
+    ) || [];
+
+  const openSemesterNames =
+    openSemesters.map(
+      (semester: OpenSemester) =>
+        semester.semester_name
+    );
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", user.id)
+    .single();
+
+  let registrationsQuery = supabase
+    .from("course_registrations")
+    .select(
+      `
+      *,
+      courses:course_id (
+        credit_units,
+        units
+      )
+    `
+    )
+    .eq("student_id", user.id);
+
+  if (openSemesterNames.length > 0) {
+    registrationsQuery =
+      registrationsQuery.in(
+        "semester",
+        openSemesterNames
+      );
+  }
 
   const { data: registrations } =
-    await supabase
-      .from("course_registrations")
-      .select(`
-        *,
-        courses:course_id (
-          units
-        )
-      `)
-      .eq("student_id", user.id);
+    await registrationsQuery;
+
+  let resultsQuery = supabase
+    .from("course_results")
+    .select("*")
+    .eq("student_id", user.id)
+    .eq(
+      "publication_status",
+      "published"
+    )
+    .eq("result_visibility", true);
+
+  if (
+    activeSession?.session_name
+  ) {
+    resultsQuery =
+      resultsQuery.eq(
+        "academic_session",
+        activeSession.session_name
+      );
+  }
+
+  if (openSemesterNames.length > 0) {
+    resultsQuery = resultsQuery.in(
+      "semester",
+      openSemesterNames
+    );
+  }
 
   const { data: results } =
-    await supabase
-      .from("computed_results")
-      .select(`
-        *,
-        courses:course_id (
-          credit_units
-        )
-      `)
-      .eq("student_id", user.id);
+    await resultsQuery;
+
+  const { data: cgpaData } =
+    await supabase.rpc(
+      "compute_student_cgpa",
+      {
+        student_input: user.id,
+      }
+    );
+
+  const cgpaRecord =
+    cgpaData?.[0];
+
+  const cgpa = Number(
+    cgpaRecord?.cgpa || 0
+  ).toFixed(2);
 
   const { data: announcements } =
     await supabase
@@ -57,81 +140,47 @@ export default async function PortalDashboardPage() {
       (sum: number, item: any) => {
         return (
           sum +
-          (item.courses?.units || 0)
+          Number(
+            item.courses
+              ?.credit_units ||
+              item.courses
+                ?.units ||
+              0
+          )
         );
       },
       0
     ) || 0;
 
-  const totalGradePoints =
-    results?.reduce(
-      (sum: number, item: any) => {
-        return (
-          sum +
-          ((item.gpa || 0) *
-            (item.courses
-              ?.credit_units || 0))
-        );
-      },
-      0
-    ) || 0;
-
-  const resultUnits =
-    results?.reduce(
-      (sum: number, item: any) => {
-        return (
-          sum +
-          (item.courses
-            ?.credit_units || 0)
-        );
-      },
-      0
-    ) || 0;
-
-  const cgpa =
-    resultUnits > 0
-      ? (
-          totalGradePoints /
-          resultUnits
-        ).toFixed(2)
-      : "0.00";
+  const publishedResults =
+    results?.length || 0;
 
   const stats = [
     {
       title: "Registered Courses",
-
       value:
-        registrations?.length || 0,
-
+        registrations?.length ||
+        0,
       description:
         "Current semester course registrations",
     },
-
     {
       title: "Total Units",
-
       value: totalUnits,
-
       description:
-        "Accumulated registered academic units",
+        "Accumulated academic units",
     },
-
     {
       title: "Published Results",
-
-      value: results?.length || 0,
-
+      value: publishedResults,
       description:
-        "Uploaded and computed academic results",
+        "Officially released results",
     },
-
     {
       title: "CGPA",
-
       value: cgpa,
-
       description:
-        "Current cumulative academic performance",
+        "Current cumulative performance",
     },
   ];
 
@@ -145,14 +194,15 @@ export default async function PortalDashboardPage() {
           Student Profile
         </p>
 
-        <div className="mt-5 grid gap-5 md:grid-cols-3">
+        <div className="mt-5 grid gap-5 md:grid-cols-4">
           <div className="border border-[#c9a84c]/10 bg-[#fdfaf4] p-5">
             <p className="text-sm uppercase tracking-[0.15em] text-[#1c2b3a]/45">
               Student Name
             </p>
 
             <h3 className="mt-3 text-2xl font-semibold text-[#0b1f3a]">
-              {profile?.full_name}
+              {profile?.full_name ||
+                "Student"}
             </h3>
           </div>
 
@@ -169,12 +219,23 @@ export default async function PortalDashboardPage() {
 
           <div className="border border-[#c9a84c]/10 bg-[#fdfaf4] p-5">
             <p className="text-sm uppercase tracking-[0.15em] text-[#1c2b3a]/45">
-              Current Level
+              Current Semester
             </p>
 
             <h3 className="mt-3 text-2xl font-semibold text-[#0b1f3a]">
-              {profile?.level ||
-                "Level 1"}
+              {profile?.current_semester ||
+                "Semester 1"}
+            </h3>
+          </div>
+
+          <div className="border border-[#c9a84c]/10 bg-[#fdfaf4] p-5">
+            <p className="text-sm uppercase tracking-[0.15em] text-[#1c2b3a]/45">
+              Cohort
+            </p>
+
+            <h3 className="mt-3 text-2xl font-semibold text-[#0b1f3a]">
+              {profile?.cohort_name ||
+                "C1"}
             </h3>
           </div>
         </div>
@@ -217,100 +278,104 @@ export default async function PortalDashboardPage() {
             </p>
 
             <h3 className="mt-3 text-2xl font-semibold text-[#0b1f3a]">
-              2026/2027
+              {activeSession?.session_name ||
+                "No Active Session"}
             </h3>
           </div>
 
           <div className="border border-[#c9a84c]/10 bg-[#fdfaf4] p-5">
             <p className="text-sm uppercase tracking-[0.15em] text-[#1c2b3a]/45">
-              Current Semester
+              Open Semesters
             </p>
 
-            <h3 className="mt-3 text-2xl font-semibold text-[#0b1f3a]">
-              {profile?.current_semester ||
-                "Semester 1"}
+            <div className="mt-3 space-y-1">
+              {openSemesters.length >
+              0 ? (
+                openSemesters.map(
+                  (
+                    semester: OpenSemester
+                  ) => (
+                    <p
+                      key={
+                        semester.id
+                      }
+                      className="text-sm font-medium text-green-700"
+                    >
+                      {
+                        semester.semester_name
+                      }{" "}
+                      Open
+                    </p>
+                  )
+                )
+              ) : (
+                <p className="text-sm text-[#1c2b3a]/60">
+                  No Semester Open
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="border border-[#c9a84c]/10 bg-[#fdfaf4] p-5">
+            <p className="text-sm uppercase tracking-[0.15em] text-[#1c2b3a]/45">
+              Transcript Status
+            </p>
+
+            <h3 className="mt-3 text-xl font-semibold text-[#0b1f3a]">
+              {profile?.transcript_eligible
+                ? "Eligible"
+                : "Not Eligible"}
             </h3>
           </div>
 
           <div className="border border-[#c9a84c]/10 bg-[#fdfaf4] p-5">
             <p className="text-sm uppercase tracking-[0.15em] text-[#1c2b3a]/45">
-              Enrollment Status
+              Graduation Status
             </p>
 
-            <h3 className="mt-3 text-2xl font-semibold text-green-700">
-              Active
-            </h3>
-          </div>
-
-          <div className="border border-[#c9a84c]/10 bg-[#fdfaf4] p-5">
-            <p className="text-sm uppercase tracking-[0.15em] text-[#1c2b3a]/45">
-              Formation Status
-            </p>
-
-            <h3 className="mt-3 text-2xl font-semibold text-[#c9a84c]">
-              Ongoing
+            <h3 className="mt-3 text-xl font-semibold text-[#0b1f3a]">
+              {profile?.programme_completed
+                ? "Completed"
+                : "In Progress"}
             </h3>
           </div>
         </div>
       </section>
 
       <section className="mt-10 border border-[#c9a84c]/20 bg-white p-8">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <p className="section-label">
-              Institutional Communication
-            </p>
-
-            <h2 className="mt-3 font-edc-serif text-4xl font-semibold text-[#0b1f3a]">
-              Latest Announcements
-            </h2>
-          </div>
-
-          <a
-            href="/portal/announcements"
-            className="btn-gold"
-          >
-            View All
-          </a>
-        </div>
+        <h2 className="font-edc-serif text-4xl font-semibold text-[#0b1f3a]">
+          Recent Announcements
+        </h2>
 
         {!announcements ||
-        announcements.length === 0 ? (
+        announcements.length ===
+          0 ? (
           <p className="mt-8 text-[#1c2b3a]/70">
-            No announcement available.
+            No announcements
+            available.
           </p>
         ) : (
           <div className="mt-8 space-y-5">
             {announcements.map(
-              (announcement: any) => (
+              (
+                announcement: any
+              ) => (
                 <div
-                  key={announcement.id}
+                  key={
+                    announcement.id
+                  }
                   className="border border-[#c9a84c]/10 bg-[#fdfaf4] p-5"
                 >
-                  <div className="flex flex-wrap items-center justify-between gap-4">
-                    <h3 className="font-edc-serif text-2xl font-semibold text-[#0b1f3a]">
-                      {
-                        announcement.title
-                      }
-                    </h3>
-
-                    <span className="border border-[#c9a84c]/20 bg-white px-4 py-2 text-xs font-bold uppercase tracking-[0.15em] text-[#0b1f3a]">
-                      {
-                        announcement.audience
-                      }
-                    </span>
-                  </div>
+                  <h3 className="font-edc-serif text-2xl font-semibold text-[#0b1f3a]">
+                    {
+                      announcement.title
+                    }
+                  </h3>
 
                   <p className="mt-4 leading-7 text-[#1c2b3a]/70">
                     {
-                      announcement.message
+                      announcement.content
                     }
-                  </p>
-
-                  <p className="mt-5 text-sm text-[#1c2b3a]/45">
-                    {new Date(
-                      announcement.created_at
-                    ).toLocaleString()}
                   </p>
                 </div>
               )

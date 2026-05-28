@@ -43,24 +43,27 @@ export default async function AdminTranscriptPage({
     .order("academic_session", { ascending: true })
     .order("semester", { ascending: true });
 
-  const totalCredits =
-    results?.reduce(
-      (sum: number, item: any) =>
-        sum + Number(item.credit_units || 0),
-      0
-    ) || 0;
+  const { data: cgpaData } = await supabase.rpc(
+  "compute_student_cgpa",
+  {
+    student_input: studentId,
+  }
+);
 
-  const totalQualityPoints =
-    results?.reduce(
-      (sum: number, item: any) =>
-        sum + Number(item.quality_points || 0),
-      0
-    ) || 0;
+const cgpaRecord = cgpaData?.[0];
 
-  const cgpa =
-    totalCredits > 0
-      ? totalQualityPoints / totalCredits
-      : 0;
+const totalCredits = Number(
+  cgpaRecord?.total_credit_units || 0
+);
+
+const totalQualityPoints = Number(
+  cgpaRecord?.total_quality_points || 0
+);
+
+const cgpa = Number(cgpaRecord?.cgpa || 0);
+
+const classification =
+  cgpaRecord?.classification || "No Result";
 
   return (
     <AdminShell
@@ -130,7 +133,7 @@ export default async function AdminTranscriptPage({
           </p>
 
           <p className="mt-3 text-2xl font-semibold text-[#0b1f3a]">
-            {getClassification(cgpa)}
+            {classification}
           </p>
         </div>
 

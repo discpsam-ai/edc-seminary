@@ -2,8 +2,34 @@ import InstructorShell from "@/components/InstructorShell";
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
 
+type OpenSemester = {
+  id: string;
+  semester_name: string;
+  is_open: boolean;
+};
+
 export default async function InstructorDashboardPage() {
   const supabase = await createClient();
+
+  const { data: activeSession } = await supabase
+    .from("academic_sessions")
+    .select(
+      `
+      *,
+      session_semesters (
+        id,
+        semester_name,
+        is_open
+      )
+    `
+    )
+    .eq("is_active", true)
+    .single();
+
+  const openSemesters =
+    activeSession?.session_semesters?.filter(
+      (semester: OpenSemester) => semester.is_open
+    ) || [];
 
   const {
     data: { user },
@@ -22,13 +48,14 @@ export default async function InstructorDashboardPage() {
     .select("*")
     .eq("instructor_id", user.id);
 
-  const courseIds =
-    courses?.map((course: any) => course.id) || [];
+  const courseIds = courses?.map((course: any) => course.id) || [];
 
-  const { data: registrations } = await supabase
-    .from("course_registrations")
-    .select("*")
-    .in("course_id", courseIds);
+  const { data: registrations } = courseIds.length
+    ? await supabase
+        .from("course_registrations")
+        .select("*")
+        .in("course_id", courseIds)
+    : { data: [] };
 
   const { data: results } = await supabase
     .from("student_results")
@@ -41,19 +68,16 @@ export default async function InstructorDashboardPage() {
       value: courses?.length || 0,
       description: "Courses assigned for teaching",
     },
-
     {
       title: "Enrolled Students",
       value: registrations?.length || 0,
       description: "Students enrolled in assigned courses",
     },
-
     {
       title: "Uploaded Results",
       value: results?.length || 0,
       description: "Published academic results",
     },
-
     {
       title: "Teaching Status",
       value: "Active",
@@ -67,9 +91,7 @@ export default async function InstructorDashboardPage() {
       subtitle="Manage teaching operations, academic activities, and student instructional engagement."
     >
       <section className="border border-[#c9a84c]/20 bg-white p-8">
-        <p className="section-label">
-          Instructor Profile
-        </p>
+        <p className="section-label">Instructor Profile</p>
 
         <div className="mt-5 grid gap-5 md:grid-cols-3">
           <div className="border border-[#c9a84c]/10 bg-[#fdfaf4] p-5">
@@ -110,9 +132,7 @@ export default async function InstructorDashboardPage() {
             key={item.title}
             className="border border-[#c9a84c]/20 bg-white p-8"
           >
-            <p className="section-label">
-              Teaching Analytics
-            </p>
+            <p className="section-label">Teaching Analytics</p>
 
             <h2 className="mt-4 font-edc-serif text-5xl font-semibold text-[#0b1f3a]">
               {item.value}
@@ -167,8 +187,25 @@ export default async function InstructorDashboardPage() {
             </p>
 
             <h3 className="mt-3 text-2xl font-semibold text-[#0b1f3a]">
-              2026/2027
+              {activeSession?.session_name || "No Active Session"}
             </h3>
+
+            <div className="mt-2 space-y-1">
+              {openSemesters.length > 0 ? (
+                openSemesters.map((semester: OpenSemester) => (
+                  <p
+                    key={semester.id}
+                    className="text-sm font-medium text-green-700"
+                  >
+                    {semester.semester_name} Open
+                  </p>
+                ))
+              ) : (
+                <p className="text-sm text-[#1c2b3a]/60">
+                  No Semester Open
+                </p>
+              )}
+            </div>
           </div>
 
           <div className="border border-[#c9a84c]/10 bg-[#fdfaf4] p-5">

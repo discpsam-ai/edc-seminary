@@ -13,13 +13,28 @@ export default async function StudentGraduationPage() {
     redirect("/login");
   }
 
-  const { data: record, error } = await supabase
+  const { data: activeSession } = await supabase
+    .from("academic_sessions")
+    .select("id, session_name, is_active")
+    .eq("is_active", true)
+    .maybeSingle();
+
+  let recordQuery = supabase
     .from("graduation_records")
     .select("*")
-    .eq("student_id", user.id)
+    .eq("student_id", user.id);
+
+  if (activeSession?.session_name) {
+    recordQuery = recordQuery.eq(
+      "academic_session",
+      activeSession.session_name
+    );
+  }
+
+  const { data: record, error } = await recordQuery
     .order("created_at", { ascending: false })
     .limit(1)
-    .single();
+    .maybeSingle();
 
   return (
     <PortalShell
@@ -31,9 +46,23 @@ export default async function StudentGraduationPage() {
           Graduation Clearance
         </h2>
 
+        <div className="mt-5 border border-[#c9a84c]/20 bg-[#fdfaf4] p-4">
+          <p className="text-sm font-semibold text-[#0b1f3a]">
+            Active Session:{" "}
+            {activeSession?.session_name || "No Active Session"}
+          </p>
+        </div>
+
         {error && (
+          <p className="mt-8 text-red-600">
+            {error.message}
+          </p>
+        )}
+
+        {!record && !error && (
           <p className="mt-8 text-[#1c2b3a]/70">
-            No graduation clearance has been processed yet.
+            No graduation clearance has been processed for the active session
+            yet.
           </p>
         )}
 
@@ -43,12 +72,22 @@ export default async function StudentGraduationPage() {
               <p className="section-label">Current Graduation Status</p>
 
               <h3 className="mt-3 font-edc-serif text-4xl font-semibold capitalize text-[#0b1f3a]">
-                {record.graduation_status}
+                {record.graduation_status || "pending"}
               </h3>
 
               <p className="mt-4 text-[#1c2b3a]/70">
                 Academic Session:{" "}
-                <strong>{record.academic_session}</strong>
+                <strong>{record.academic_session || "N/A"}</strong>
+              </p>
+
+              <p className="mt-2 text-[#1c2b3a]/70">
+                Semester:{" "}
+                <strong>{record.semester || "All Semesters"}</strong>
+              </p>
+
+              <p className="mt-2 text-[#1c2b3a]/70">
+                Eligibility:{" "}
+                <strong>{record.eligibility_status || "Pending"}</strong>
               </p>
             </div>
 
@@ -69,7 +108,7 @@ export default async function StudentGraduationPage() {
                 </p>
 
                 <p className="mt-2 text-lg font-semibold text-[#0b1f3a]">
-                  {record.classification}
+                  {record.classification || "N/A"}
                 </p>
               </div>
 
@@ -79,9 +118,7 @@ export default async function StudentGraduationPage() {
                 </p>
 
                 <p className="mt-2 text-lg font-semibold text-[#0b1f3a]">
-                  {record.certificate_issued
-                    ? "Issued"
-                    : "Pending"}
+                  {record.certificate_issued ? "Issued" : "Pending"}
                 </p>
               </div>
             </div>
@@ -93,9 +130,7 @@ export default async function StudentGraduationPage() {
                 </p>
 
                 <p className="mt-3 text-xl font-semibold text-[#0b1f3a]">
-                  {record.academic_clearance
-                    ? "Cleared"
-                    : "Pending"}
+                  {record.academic_clearance ? "Cleared" : "Pending"}
                 </p>
               </div>
 
@@ -105,9 +140,7 @@ export default async function StudentGraduationPage() {
                 </p>
 
                 <p className="mt-3 text-xl font-semibold text-[#0b1f3a]">
-                  {record.formation_clearance
-                    ? "Cleared"
-                    : "Pending"}
+                  {record.formation_clearance ? "Cleared" : "Pending"}
                 </p>
               </div>
 
@@ -117,12 +150,22 @@ export default async function StudentGraduationPage() {
                 </p>
 
                 <p className="mt-3 text-xl font-semibold text-[#0b1f3a]">
-                  {record.commissioning_clearance
-                    ? "Cleared"
-                    : "Pending"}
+                  {record.commissioning_clearance ? "Cleared" : "Pending"}
                 </p>
               </div>
             </div>
+
+            {record.eligibility_summary && (
+              <div className="border border-[#c9a84c]/20 bg-white p-5">
+                <p className="text-xs font-bold uppercase tracking-[0.15em] text-[#1c2b3a]/50">
+                  Eligibility Summary
+                </p>
+
+                <p className="mt-4 whitespace-pre-line leading-8 text-[#1c2b3a]/70">
+                  {record.eligibility_summary}
+                </p>
+              </div>
+            )}
 
             {record.remarks && (
               <div className="border border-[#c9a84c]/20 bg-white p-5">
@@ -130,7 +173,7 @@ export default async function StudentGraduationPage() {
                   Graduation Remarks
                 </p>
 
-                <p className="mt-4 leading-8 text-[#1c2b3a]/70">
+                <p className="mt-4 whitespace-pre-line leading-8 text-[#1c2b3a]/70">
                   {record.remarks}
                 </p>
               </div>

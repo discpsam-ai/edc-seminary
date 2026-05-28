@@ -2,8 +2,51 @@ import AdminShell from "@/components/AdminShell";
 import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
 
+type OpenSemester = {
+  id: string;
+  semester_name: string;
+  is_open: boolean;
+};
+
+type Instructor = {
+  id: string;
+  full_name: string | null;
+  email: string | null;
+  instructor_number: string | null;
+};
+
+type Course = {
+  id: string;
+  code: string | null;
+  title: string | null;
+  level: string | null;
+  semester: string | null;
+};
+
 export default async function AssignInstructorCoursesPage() {
   const supabase = await createClient();
+
+  const { data: activeSession } = await supabase
+    .from("academic_sessions")
+    .select(
+      `
+      id,
+      session_name,
+      is_active,
+      session_semesters (
+        id,
+        semester_name,
+        is_open
+      )
+    `
+    )
+    .eq("is_active", true)
+    .maybeSingle();
+
+  const openSemesters =
+    activeSession?.session_semesters?.filter(
+      (semester: OpenSemester) => semester.is_open
+    ) || [];
 
   const { data: instructors } = await supabase
     .from("profiles")
@@ -18,7 +61,8 @@ export default async function AssignInstructorCoursesPage() {
 
   const { data: assignments, error } = await supabase
     .from("instructor_course_assignments")
-    .select(`
+    .select(
+      `
       *,
       profiles:instructor_id (
         full_name,
@@ -26,11 +70,13 @@ export default async function AssignInstructorCoursesPage() {
         instructor_number
       ),
       courses:course_id (
+        code,
         title,
         level,
         semester
       )
-    `)
+    `
+    )
     .order("assigned_at", { ascending: false });
 
   async function assignCourse(formData: FormData) {
@@ -41,14 +87,31 @@ export default async function AssignInstructorCoursesPage() {
     const instructorId = formData.get("instructor_id") as string;
     const courseId = formData.get("course_id") as string;
     const academicSession = formData.get("academic_session") as string;
+    const semester = formData.get("semester") as string;
 
-    const { data: course } = await supabase
+    if (!instructorId) {
+      throw new Error("Please select an instructor.");
+    }
+
+    if (!courseId) {
+      throw new Error("Please select a course.");
+    }
+
+    if (!academicSession) {
+      throw new Error("No active academic session found.");
+    }
+
+    if (!semester) {
+      throw new Error("Please select a semester.");
+    }
+
+    const { data: course, error: courseError } = await supabase
       .from("courses")
       .select("code")
       .eq("id", courseId)
       .single();
 
-    if (!course) {
+    if (courseError || !course) {
       throw new Error("Course not found.");
     }
 
@@ -64,13 +127,14 @@ export default async function AssignInstructorCoursesPage() {
           course_id: courseId,
           course_code: course.code,
           academic_session: academicSession,
+          semester,
           assignment_status: "active",
           assigned_by: user?.id,
           assigned_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         },
         {
-          onConflict: "instructor_id,course_id,academic_session",
+          onConflict: "instructor_id,course_id,academic_session,semester",
         }
       );
 
@@ -84,7 +148,7 @@ export default async function AssignInstructorCoursesPage() {
   return (
     <AdminShell
       title="Assign Instructor Courses"
-      subtitle="Assign approved instructors to official EDC courses for each academic session."
+      subtitle="Assign approved instructors to official EDC courses for each academic session and semester."
     >
       <section className="grid gap-8 lg:grid-cols-[0.85fr_1.15fr]">
         <div className="border border-[#c9a84c]/20 bg-white/90 p-8">
@@ -92,7 +156,37 @@ export default async function AssignInstructorCoursesPage() {
             Assign Course
           </h2>
 
+          <div className="mt-5 border border-[#c9a84c]/20 bg-[#fdfaf4] p-4">
+            <p className="text-sm font-semibold text-[#0b1f3a]">
+              Active Session:{" "}
+              {activeSession?.session_name || "No Active Session"}
+            </p>
+
+            <div className="mt-2 space-y-1">
+              {openSemesters.length > 0 ? (
+                openSemesters.map((semester: OpenSemester) => (
+                  <p
+                    key={semester.id}
+                    className="text-sm font-medium text-green-700"
+                  >
+                    {semester.semester_name} Open
+                  </p>
+                ))
+              ) : (
+                <p className="text-sm text-red-700">
+                  No semester is currently open.
+                </p>
+              )}
+            </div>
+          </div>
+
           <form action={assignCourse} className="mt-8 grid gap-5">
+            <input
+              type="hidden"
+              name="academic_session"
+              value={activeSession?.session_name || ""}
+            />
+
             <select
               name="instructor_id"
               required
@@ -100,11 +194,11 @@ export default async function AssignInstructorCoursesPage() {
             >
               <option value="">Select Instructor</option>
 
-              {instructors?.map((instructor: any) => (
+              {instructors?.map((instructor: Instructor) => (
                 <option key={instructor.id} value={instructor.id}>
-                  {instructor.full_name} —{" "}
+                  {instructor.full_name || "Unnamed Instructor"} —{" "}
                   {instructor.instructor_number || "No Instructor ID"} —{" "}
-                  {instructor.email}
+                  {instructor.email || "No Email"}
                 </option>
               ))}
             </select>
@@ -116,22 +210,34 @@ export default async function AssignInstructorCoursesPage() {
             >
               <option value="">Select Course</option>
 
-              {courses?.map((course: any) => (
+              {courses?.map((course: Course) => (
                 <option key={course.id} value={course.id}>
-                  {course.code} — {course.title} — {course.level} —{" "}
-                  {course.semester}
+                  {course.code || "No Code"} — {course.title || "Untitled"} —{" "}
+                  {course.level || "No Level"} —{" "}
+                  {course.semester || "No Semester"}
                 </option>
               ))}
             </select>
 
-            <input
-              name="academic_session"
+            <select
+              name="semester"
               required
-              placeholder="Academic Session e.g. 2026/2027"
               className="border border-[#c9a84c]/30 bg-[#fdfaf4]/90 p-4 outline-none"
-            />
+            >
+              <option value="">Select Semester</option>
 
-            <button type="submit" className="btn-gold">
+              {openSemesters.map((semester: OpenSemester) => (
+                <option key={semester.id} value={semester.semester_name}>
+                  {semester.semester_name}
+                </option>
+              ))}
+            </select>
+
+            <button
+              type="submit"
+              className="btn-gold"
+              disabled={!activeSession || openSemesters.length === 0}
+            >
               Assign Course
             </button>
           </form>
@@ -156,11 +262,13 @@ export default async function AssignInstructorCoursesPage() {
                   className="border border-[#c9a84c]/10 bg-[#fdfaf4]/90 p-5"
                 >
                   <p className="section-label">
-                    {assignment.course_code}
+                    {assignment.course_code || assignment.courses?.code}
                   </p>
 
                   <h3 className="mt-3 font-edc-serif text-2xl font-semibold text-[#0b1f3a]">
-                    {assignment.courses?.title || assignment.course_code}
+                    {assignment.courses?.title ||
+                      assignment.course_code ||
+                      "Untitled Course"}
                   </h3>
 
                   <p className="mt-3 text-[#1c2b3a]/70">
@@ -176,11 +284,15 @@ export default async function AssignInstructorCoursesPage() {
                   </p>
 
                   <p className="mt-1 text-sm text-[#1c2b3a]/60">
-                    Session: {assignment.academic_session}
+                    Session: {assignment.academic_session || "No Session"}
+                  </p>
+
+                  <p className="mt-1 text-sm text-[#1c2b3a]/60">
+                    Semester: {assignment.semester || "No Semester"}
                   </p>
 
                   <span className="mt-4 inline-block border border-[#c9a84c]/30 bg-white px-4 py-2 text-xs font-bold uppercase tracking-[0.15em] text-[#c9a84c]">
-                    {assignment.assignment_status}
+                    {assignment.assignment_status || "active"}
                   </span>
                 </div>
               ))}

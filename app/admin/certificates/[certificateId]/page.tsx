@@ -4,29 +4,35 @@ import { createClient } from "@/utils/supabase/server";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 
+type CertificatePageProps = {
+  params: Promise<{
+    certificateId: string;
+  }>;
+};
+
 export default async function CertificatePage({
   params,
-}: {
-  params: Promise<{ certificateId: string }>;
-}) {
+}: CertificatePageProps) {
   const { certificateId } = await params;
 
   const supabase = await createClient();
 
-  const { data: certificate } = await supabase
+  const { data: certificate, error } = await supabase
     .from("certificate_records")
-    .select(`
+    .select(
+      `
       *,
       profiles:student_id (
         full_name,
         student_number,
         passport_url
       )
-    `)
+    `
+    )
     .eq("id", certificateId)
     .single();
 
-  if (!certificate) {
+  if (error || !certificate) {
     notFound();
   }
 
@@ -36,7 +42,7 @@ export default async function CertificatePage({
       subtitle="Official EDC certificate document."
     >
       <section className="border border-[#c9a84c]/20 bg-white p-12">
-        <div className="mb-8 flex justify-end">
+        <div className="mb-8 flex justify-end print:hidden">
           <PrintButton />
         </div>
 
@@ -49,6 +55,7 @@ export default async function CertificatePage({
                 width={120}
                 height={120}
                 className="h-28 w-auto"
+                priority
               />
             </div>
 
@@ -65,17 +72,17 @@ export default async function CertificatePage({
             </p>
 
             <h2 className="mt-8 font-edc-serif text-6xl font-semibold text-[#c9a84c]">
-              {certificate.profiles?.full_name}
+              {certificate.profiles?.full_name || "Student Name"}
             </h2>
 
-            <p className="mt-10 max-w-4xl mx-auto text-xl leading-10 text-[#1c2b3a]/75">
+            <p className="mx-auto mt-10 max-w-4xl text-xl leading-10 text-[#1c2b3a]/75">
               has successfully completed the prescribed programme and
               discipleship formation requirements of Ecclesia Discipleship &
               Commissioning (EDC) and is hereby awarded this
             </p>
 
             <h3 className="mt-10 font-edc-serif text-5xl font-semibold text-[#0b1f3a]">
-              {certificate.certificate_title}
+              {certificate.certificate_title || "Certificate"}
             </h3>
 
             <div className="mt-12 grid gap-6 md:grid-cols-3">
@@ -85,7 +92,7 @@ export default async function CertificatePage({
                 </p>
 
                 <p className="mt-3 font-semibold text-[#0b1f3a]">
-                  {certificate.certificate_number}
+                  {certificate.certificate_number || "N/A"}
                 </p>
               </div>
 
@@ -113,11 +120,9 @@ export default async function CertificatePage({
             <div className="mt-14 flex justify-center">
               <div className="flex h-48 w-40 items-center justify-center overflow-hidden border border-[#c9a84c]/20 bg-[#f7f3ec]">
                 {certificate.profiles?.passport_url ? (
-                  <Image
+                  <img
                     src={certificate.profiles.passport_url}
                     alt="Student Passport"
-                    width={400}
-                    height={500}
                     className="h-full w-full object-cover"
                   />
                 ) : (
@@ -148,7 +153,7 @@ export default async function CertificatePage({
               </p>
 
               <p className="mt-3 font-semibold tracking-[0.2em] text-[#0b1f3a]">
-                {certificate.verification_code}
+                {certificate.verification_code || "N/A"}
               </p>
             </div>
           </div>

@@ -40,23 +40,26 @@ export default async function AdminTranscriptsPage({
         .order("course_code", { ascending: true })
     : { data: [], error: null };
 
-  const totalCreditUnits =
-    results?.reduce(
-      (sum: number, item: any) => sum + Number(item.credit_units || 0),
-      0
-    ) || 0;
+  const { data: cgpaData } = selectedStudentId
+  ? await supabase.rpc("compute_student_cgpa", {
+      student_input: selectedStudentId,
+    })
+  : { data: [] };
 
-  const totalQualityPoints =
-    results?.reduce(
-      (sum: number, item: any) => sum + Number(item.quality_points || 0),
-      0
-    ) || 0;
+const cgpaRecord = cgpaData?.[0];
 
-  const cgpa =
-    totalCreditUnits > 0 ? totalQualityPoints / totalCreditUnits : 0;
+const totalCreditUnits = Number(
+  cgpaRecord?.total_credit_units || 0
+);
 
-  const classification = getClassification(cgpa);
+const totalQualityPoints = Number(
+  cgpaRecord?.total_quality_points || 0
+);
 
+const cgpa = Number(cgpaRecord?.cgpa || 0);
+
+const classification =
+  cgpaRecord?.classification || "No Result";
   return (
     <main className="min-h-screen bg-[#fdfaf4] p-8">
       <section className="mx-auto max-w-7xl">

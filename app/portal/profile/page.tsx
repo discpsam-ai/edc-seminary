@@ -4,6 +4,12 @@ import Image from "next/image";
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
 
+type OpenSemester = {
+  id: string;
+  semester_name: string;
+  is_open: boolean;
+};
+
 export default async function ProfilePage() {
   const supabase = await createClient();
 
@@ -15,9 +21,32 @@ export default async function ProfilePage() {
     redirect("/login");
   }
 
+  const { data: activeSession } = await supabase
+    .from("academic_sessions")
+    .select(
+      `
+      id,
+      session_name,
+      is_active,
+      session_semesters (
+        id,
+        semester_name,
+        is_open
+      )
+    `
+    )
+    .eq("is_active", true)
+    .maybeSingle();
+
+  const openSemesters =
+    activeSession?.session_semesters?.filter(
+      (semester: OpenSemester) => semester.is_open
+    ) || [];
+
   const { data: profile } = await supabase
     .from("profiles")
-    .select(`
+    .select(
+      `
       full_name,
       email,
       role,
@@ -30,7 +59,8 @@ export default async function ProfilePage() {
         academic_session,
         entry_semester
       )
-    `)
+    `
+    )
     .eq("id", user.id)
     .single();
 
@@ -91,7 +121,9 @@ export default async function ProfilePage() {
 
               [
                 "Academic Session",
-                intakeBatch?.academic_session || "Not assigned",
+                activeSession?.session_name ||
+                  intakeBatch?.academic_session ||
+                  "Not assigned",
               ],
 
               [
@@ -117,82 +149,135 @@ export default async function ProfilePage() {
           </div>
         </div>
 
-        <div className="border border-[#c9a84c]/20 bg-white/90 p-8">
-          <h2 className="font-edc-serif text-4xl font-semibold text-[#0b1f3a]">
-            Personal Information
-          </h2>
+        <div className="space-y-8">
+          <div className="border border-[#c9a84c]/20 bg-white/90 p-8">
+            <h2 className="font-edc-serif text-4xl font-semibold text-[#0b1f3a]">
+              Academic Status
+            </h2>
 
-          <div className="mt-8 grid gap-5 md:grid-cols-2">
-            <div className="border border-[#c9a84c]/30 bg-[#fdfaf4]/90 p-4">
-              <p className="text-xs font-bold uppercase tracking-[0.15em] text-[#1c2b3a]/50">
-                Full Name
-              </p>
+            <div className="mt-8 grid gap-5 md:grid-cols-2">
+              <div className="border border-[#c9a84c]/30 bg-[#fdfaf4]/90 p-4">
+                <p className="text-xs font-bold uppercase tracking-[0.15em] text-[#1c2b3a]/50">
+                  Active Session
+                </p>
 
-              <p className="mt-2 text-[#0b1f3a]">
-                {profile?.full_name || "Not available"}
-              </p>
+                <p className="mt-2 text-[#0b1f3a]">
+                  {activeSession?.session_name || "No Active Session"}
+                </p>
+              </div>
+
+              <div className="border border-[#c9a84c]/30 bg-[#fdfaf4]/90 p-4">
+                <p className="text-xs font-bold uppercase tracking-[0.15em] text-[#1c2b3a]/50">
+                  Current Semester
+                </p>
+
+                <p className="mt-2 text-[#0b1f3a]">
+                  {profile?.current_semester || "Not assigned"}
+                </p>
+              </div>
+
+              <div className="border border-[#c9a84c]/30 bg-[#fdfaf4]/90 p-4 md:col-span-2">
+                <p className="text-xs font-bold uppercase tracking-[0.15em] text-[#1c2b3a]/50">
+                  Open Semesters
+                </p>
+
+                <div className="mt-3 space-y-2">
+                  {openSemesters.length > 0 ? (
+                    openSemesters.map((semester: OpenSemester) => (
+                      <div
+                        key={semester.id}
+                        className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-700"
+                      >
+                        {semester.semester_name} Open
+                      </div>
+                    ))
+                  ) : (
+                    <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+                      No semester currently open
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
+          </div>
 
-            <div className="border border-[#c9a84c]/30 bg-[#fdfaf4]/90 p-4">
-              <p className="text-xs font-bold uppercase tracking-[0.15em] text-[#1c2b3a]/50">
-                Student ID
-              </p>
+          <div className="border border-[#c9a84c]/20 bg-white/90 p-8">
+            <h2 className="font-edc-serif text-4xl font-semibold text-[#0b1f3a]">
+              Personal Information
+            </h2>
 
-              <p className="mt-2 text-[#0b1f3a]">
-                {profile?.student_number || "Not assigned"}
-              </p>
-            </div>
+            <div className="mt-8 grid gap-5 md:grid-cols-2">
+              <div className="border border-[#c9a84c]/30 bg-[#fdfaf4]/90 p-4">
+                <p className="text-xs font-bold uppercase tracking-[0.15em] text-[#1c2b3a]/50">
+                  Full Name
+                </p>
 
-            <div className="border border-[#c9a84c]/30 bg-[#fdfaf4]/90 p-4">
-              <p className="text-xs font-bold uppercase tracking-[0.15em] text-[#1c2b3a]/50">
-                Email Address
-              </p>
+                <p className="mt-2 text-[#0b1f3a]">
+                  {profile?.full_name || "Not available"}
+                </p>
+              </div>
 
-              <p className="mt-2 text-[#0b1f3a]">
-                {profile?.email || "Not available"}
-              </p>
-            </div>
+              <div className="border border-[#c9a84c]/30 bg-[#fdfaf4]/90 p-4">
+                <p className="text-xs font-bold uppercase tracking-[0.15em] text-[#1c2b3a]/50">
+                  Student ID
+                </p>
 
-            <div className="border border-[#c9a84c]/30 bg-[#fdfaf4]/90 p-4">
-              <p className="text-xs font-bold uppercase tracking-[0.15em] text-[#1c2b3a]/50">
-                Current Level
-              </p>
+                <p className="mt-2 text-[#0b1f3a]">
+                  {profile?.student_number || "Not assigned"}
+                </p>
+              </div>
 
-              <p className="mt-2 text-[#0b1f3a]">
-                {profile?.level || "Not assigned"}
-              </p>
-            </div>
+              <div className="border border-[#c9a84c]/30 bg-[#fdfaf4]/90 p-4">
+                <p className="text-xs font-bold uppercase tracking-[0.15em] text-[#1c2b3a]/50">
+                  Email Address
+                </p>
 
-            <div className="border border-[#c9a84c]/30 bg-[#fdfaf4]/90 p-4">
-              <p className="text-xs font-bold uppercase tracking-[0.15em] text-[#1c2b3a]/50">
-                Intake Batch
-              </p>
+                <p className="mt-2 text-[#0b1f3a]">
+                  {profile?.email || "Not available"}
+                </p>
+              </div>
 
-              <p className="mt-2 text-[#0b1f3a]">
-                {intakeBatch?.name || "Not assigned"}
-              </p>
-            </div>
+              <div className="border border-[#c9a84c]/30 bg-[#fdfaf4]/90 p-4">
+                <p className="text-xs font-bold uppercase tracking-[0.15em] text-[#1c2b3a]/50">
+                  Current Level
+                </p>
 
-            <div className="border border-[#c9a84c]/30 bg-[#fdfaf4]/90 p-4">
-              <p className="text-xs font-bold uppercase tracking-[0.15em] text-[#1c2b3a]/50">
-                Academic Session
-              </p>
+                <p className="mt-2 text-[#0b1f3a]">
+                  {profile?.level || "Not assigned"}
+                </p>
+              </div>
 
-              <p className="mt-2 text-[#0b1f3a]">
-                {intakeBatch?.academic_session || "Not assigned"}
-              </p>
-            </div>
+              <div className="border border-[#c9a84c]/30 bg-[#fdfaf4]/90 p-4">
+                <p className="text-xs font-bold uppercase tracking-[0.15em] text-[#1c2b3a]/50">
+                  Intake Batch
+                </p>
 
-            <div className="border border-[#c9a84c]/30 bg-[#fdfaf4]/90 p-4 md:col-span-2">
-              <p className="text-xs font-bold uppercase tracking-[0.15em] text-[#1c2b3a]/50">
-                Institutional Note
-              </p>
+                <p className="mt-2 text-[#0b1f3a]">
+                  {intakeBatch?.name || "Not assigned"}
+                </p>
+              </div>
 
-              <p className="mt-2 leading-7 text-[#1c2b3a]/70">
-                Your Student ID is your official institutional identity for
-                EDC Seminary records, transcripts, results, certificates,
-                attendance, and verification.
-              </p>
+              <div className="border border-[#c9a84c]/30 bg-[#fdfaf4]/90 p-4">
+                <p className="text-xs font-bold uppercase tracking-[0.15em] text-[#1c2b3a]/50">
+                  Entry Semester
+                </p>
+
+                <p className="mt-2 text-[#0b1f3a]">
+                  {intakeBatch?.entry_semester || "Not assigned"}
+                </p>
+              </div>
+
+              <div className="border border-[#c9a84c]/30 bg-[#fdfaf4]/90 p-4 md:col-span-2">
+                <p className="text-xs font-bold uppercase tracking-[0.15em] text-[#1c2b3a]/50">
+                  Institutional Note
+                </p>
+
+                <p className="mt-2 leading-7 text-[#1c2b3a]/70">
+                  Your Student ID is your official institutional identity for
+                  EDC Seminary records, transcripts, results, certificates,
+                  attendance, formation records, and verification.
+                </p>
+              </div>
             </div>
           </div>
         </div>

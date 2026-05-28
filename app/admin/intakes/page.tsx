@@ -2,8 +2,48 @@ import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
 import Link from "next/link";
 
+type OpenSemester = {
+  id: string;
+  semester_name: string;
+  is_open: boolean;
+};
+
+type Intake = {
+  id: string;
+  name: string | null;
+  academic_session: string | null;
+  admission_year: string | null;
+  cohort_code: string | null;
+  entry_level: string | null;
+  entry_semester: string | null;
+  registration_status: string | null;
+  description: string | null;
+};
+
 export default async function AdminIntakesPage() {
   const supabase = await createClient();
+
+  const { data: activeSession } = await supabase
+    .from("academic_sessions")
+    .select(
+      `
+      id,
+      session_name,
+      is_active,
+      session_semesters (
+        id,
+        semester_name,
+        is_open
+      )
+    `
+    )
+    .eq("is_active", true)
+    .maybeSingle();
+
+  const openSemesters =
+    activeSession?.session_semesters?.filter(
+      (semester: OpenSemester) => semester.is_open
+    ) || [];
 
   const { data: intakes, error } = await supabase
     .from("intake_batches")
@@ -23,6 +63,14 @@ export default async function AdminIntakesPage() {
     const entrySemester = formData.get("entry_semester") as string;
     const registrationStatus = formData.get("registration_status") as string;
     const description = formData.get("description") as string;
+
+    if (!academicSession) {
+      throw new Error("No active academic session found.");
+    }
+
+    if (!entrySemester) {
+      throw new Error("Please select an entry semester.");
+    }
 
     const {
       data: { user },
@@ -75,18 +123,41 @@ export default async function AdminIntakesPage() {
               Create Intake
             </h2>
 
+            <div className="mt-5 border border-[#c9a84c]/20 bg-[#fdfaf4] p-4">
+              <p className="text-sm font-semibold text-[#0b1f3a]">
+                Active Session:{" "}
+                {activeSession?.session_name || "No Active Session"}
+              </p>
+
+              <div className="mt-2 space-y-1">
+                {openSemesters.length > 0 ? (
+                  openSemesters.map((semester: OpenSemester) => (
+                    <p
+                      key={semester.id}
+                      className="text-sm font-medium text-green-700"
+                    >
+                      {semester.semester_name} Open
+                    </p>
+                  ))
+                ) : (
+                  <p className="text-sm text-red-700">
+                    No semester is currently open.
+                  </p>
+                )}
+              </div>
+            </div>
+
             <form action={createIntake} className="mt-8 grid gap-5">
               <input
-                name="name"
-                required
-                placeholder="Intake Name e.g. 2025 Semester 1 Intake"
-                className="border border-[#c9a84c]/30 bg-[#fdfaf4]/90 p-4 outline-none"
+                type="hidden"
+                name="academic_session"
+                value={activeSession?.session_name || ""}
               />
 
               <input
-                name="academic_session"
+                name="name"
                 required
-                placeholder="Academic Session e.g. 2025/2026"
+                placeholder="Intake Name e.g. 2025/2026 Semester 1 Intake"
                 className="border border-[#c9a84c]/30 bg-[#fdfaf4]/90 p-4 outline-none"
               />
 
@@ -119,17 +190,16 @@ export default async function AdminIntakesPage() {
               <select
                 name="entry_semester"
                 required
-                defaultValue="Semester 1"
+                defaultValue=""
                 className="border border-[#c9a84c]/30 bg-[#fdfaf4]/90 p-4 outline-none"
               >
-                <option value="Semester 1">Semester 1</option>
-                <option value="Semester 2">Semester 2</option>
-                <option value="Semester 3">Semester 3</option>
-                <option value="Semester 4">Semester 4</option>
-                <option value="Semester 5">Semester 5</option>
-                <option value="Semester 6">Semester 6</option>
-                <option value="Semester 7">Semester 7</option>
-                <option value="Semester 8">Semester 8</option>
+                <option value="">Select Entry Semester</option>
+
+                {openSemesters.map((semester: OpenSemester) => (
+                  <option key={semester.id} value={semester.semester_name}>
+                    {semester.semester_name}
+                  </option>
+                ))}
               </select>
 
               <select
@@ -143,13 +213,18 @@ export default async function AdminIntakesPage() {
                 <option value="paused">Paused</option>
               </select>
 
-             <textarea
-  name="description"
-  placeholder="Short intake description..."
-  spellCheck={false}
-  className="min-h-32 border border-[#c9a84c]/30 bg-[#fdfaf4]/90 p-4 outline-none transition"
-/>
-              <button type="submit" className="btn-gold">
+              <textarea
+                name="description"
+                placeholder="Short intake description..."
+                spellCheck={false}
+                className="min-h-32 border border-[#c9a84c]/30 bg-[#fdfaf4]/90 p-4 outline-none transition"
+              />
+
+              <button
+                type="submit"
+                className="btn-gold"
+                disabled={!activeSession || openSemesters.length === 0}
+              >
                 Create Intake
               </button>
             </form>
@@ -168,7 +243,7 @@ export default async function AdminIntakesPage() {
               </p>
             ) : (
               <div className="mt-8 space-y-5">
-                {intakes.map((intake: any) => (
+                {intakes.map((intake: Intake) => (
                   <div
                     key={intake.id}
                     className="border border-[#c9a84c]/10 bg-[#fdfaf4]/90 p-5"
@@ -176,18 +251,20 @@ export default async function AdminIntakesPage() {
                     <div className="flex flex-wrap items-start justify-between gap-4">
                       <div>
                         <h3 className="font-edc-serif text-2xl font-semibold text-[#0b1f3a]">
-                          {intake.name}
+                          {intake.name || "Unnamed Intake"}
                         </h3>
 
                         <p className="mt-2 text-sm text-[#1c2b3a]/60">
-                          {intake.academic_session} • {intake.admission_year} •{" "}
-                          {intake.cohort_code} • {intake.entry_level} •{" "}
-                          {intake.entry_semester}
+                          {intake.academic_session || "No Session"} •{" "}
+                          {intake.admission_year || "No Year"} •{" "}
+                          {intake.cohort_code || "No Cohort"} •{" "}
+                          {intake.entry_level || "No Level"} •{" "}
+                          {intake.entry_semester || "No Semester"}
                         </p>
                       </div>
 
                       <span className="border border-[#c9a84c]/30 bg-white px-4 py-2 text-xs font-bold uppercase tracking-[0.15em] text-[#c9a84c]">
-                        {intake.registration_status}
+                        {intake.registration_status || "unknown"}
                       </span>
                     </div>
 

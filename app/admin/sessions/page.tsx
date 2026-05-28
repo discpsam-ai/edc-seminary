@@ -18,28 +18,57 @@ type SessionSemester = {
   is_open: boolean;
 };
 
+const semesterList = [
+  "Semester 1",
+  "Semester 2",
+  "Semester 3",
+  "Semester 4",
+  "Semester 5",
+  "Semester 6",
+  "Semester 7",
+  "Semester 8",
+];
+
 export default function AdminSessionsPage() {
   const supabase = createClient();
 
-  const [sessions, setSessions] = useState<AcademicSession[]>([]);
-  const [semesters, setSemesters] = useState<SessionSemester[]>([]);
-  const [sessionName, setSessionName] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [sessions, setSessions] =
+    useState<AcademicSession[]>([]);
+
+  const [semesters, setSemesters] =
+    useState<SessionSemester[]>([]);
+
+  const [sessionName, setSessionName] =
+    useState("");
+
+  const [loading, setLoading] =
+    useState(false);
 
   async function loadData() {
-    const { data: sessionData, error: sessionError } = await supabase
+    const {
+      data: sessionData,
+      error: sessionError,
+    } = await supabase
       .from("academic_sessions")
       .select("*")
-      .order("created_at", { ascending: false });
+      .order("created_at", {
+        ascending: false,
+      });
 
     if (sessionError) {
       alert(sessionError.message);
       return;
     }
 
-    const { data: semesterData, error: semesterError } = await supabase
+    const {
+      data: semesterData,
+      error: semesterError,
+    } = await supabase
       .from("session_semesters")
-      .select("*");
+      .select("*")
+      .order("semester_name", {
+        ascending: true,
+      });
 
     if (semesterError) {
       alert(semesterError.message);
@@ -52,71 +81,98 @@ export default function AdminSessionsPage() {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [supabase]);
 
   async function createSession() {
     if (!sessionName.trim()) {
-      alert("Enter session name, e.g. 2025/2026");
+      alert(
+        "Enter session name e.g. 2026/2027"
+      );
       return;
     }
 
     setLoading(true);
 
-    const { data, error } = await supabase
+    const {
+      data,
+      error,
+    } = await supabase
       .from("academic_sessions")
       .insert({
-        session_name: sessionName.trim(),
+        session_name:
+          sessionName.trim(),
+
         admissions_open: false,
+
         registration_open: false,
+
         is_active: false,
       })
       .select()
       .single();
 
-    if (error) {
+    if (error || !data) {
       setLoading(false);
-      alert(error.message);
+
+      alert(
+        error?.message ||
+          "Unable to create session."
+      );
+
       return;
     }
 
-    const { error: semesterInsertError } = await supabase
+    const semesterPayload: Omit<
+      SessionSemester,
+      "id"
+    >[] = semesterList.map(
+      (semesterName) => ({
+        academic_session_id:
+          data.id,
+
+        semester_name:
+          semesterName,
+
+        is_open: false,
+      })
+    );
+
+    const {
+      error: semesterError,
+    } = await supabase
       .from("session_semesters")
-      .insert([
-        {
-          academic_session_id: data.id,
-          semester_name: "Semester 1",
-          is_open: false,
-        },
-        {
-          academic_session_id: data.id,
-          semester_name: "Semester 2",
-          is_open: false,
-        },
-      ]);
+      .insert(semesterPayload);
 
     setLoading(false);
 
-    if (semesterInsertError) {
-      alert(semesterInsertError.message);
+    if (semesterError) {
+      alert(semesterError.message);
       return;
     }
 
     setSessionName("");
+
     loadData();
   }
 
-  async function makeActive(id: string) {
+  async function makeActive(
+    sessionId: string
+  ) {
     setLoading(true);
 
     await supabase
       .from("academic_sessions")
-      .update({ is_active: false })
-      .neq("id", id);
+      .update({
+        is_active: false,
+      })
+      .neq("id", sessionId);
 
     const { error } = await supabase
       .from("academic_sessions")
-      .update({ is_active: true })
-      .eq("id", id);
+      .update({
+        is_active: true,
+      })
+      .eq("id", sessionId);
 
     setLoading(false);
 
@@ -129,16 +185,20 @@ export default function AdminSessionsPage() {
   }
 
   async function toggleSessionField(
-    id: string,
-    field: "admissions_open" | "registration_open",
-    value: boolean
+    sessionId: string,
+    field:
+      | "admissions_open"
+      | "registration_open",
+    currentValue: boolean
   ) {
     setLoading(true);
 
     const { error } = await supabase
       .from("academic_sessions")
-      .update({ [field]: !value })
-      .eq("id", id);
+      .update({
+        [field]: !currentValue,
+      })
+      .eq("id", sessionId);
 
     setLoading(false);
 
@@ -150,13 +210,18 @@ export default function AdminSessionsPage() {
     loadData();
   }
 
-  async function toggleSemester(id: string, value: boolean) {
+  async function toggleSemester(
+    semesterId: string,
+    currentValue: boolean
+  ) {
     setLoading(true);
 
     const { error } = await supabase
       .from("session_semesters")
-      .update({ is_open: !value })
-      .eq("id", id);
+      .update({
+        is_open: !currentValue,
+      })
+      .eq("id", semesterId);
 
     setLoading(false);
 
@@ -170,67 +235,129 @@ export default function AdminSessionsPage() {
 
   return (
     <main className="min-h-screen bg-[#fdfaf4] p-6 text-[#2d2414]">
-      <div className="mx-auto max-w-6xl space-y-8">
+      <div className="mx-auto max-w-7xl space-y-8">
         <div>
-          <h1 className="text-3xl font-bold">Academic Session Management</h1>
-          <p className="mt-2 text-sm text-[#6f6042]">
-            Create sessions and open Semester 1 or Semester 2 independently.
+          <p className="text-xs font-bold uppercase tracking-[0.25em] text-[#c9a84c]">
+            EDC Academic Structure
+          </p>
+
+          <h1 className="mt-3 text-4xl font-bold">
+            Academic Session
+            Management
+          </h1>
+
+          <p className="mt-4 max-w-3xl text-sm leading-7 text-[#6f6042]">
+            Manage institutional
+            sessions, activate
+            concurrent semesters,
+            control admissions,
+            regulate registration,
+            and maintain the
+            official 8-semester
+            progression structure
+            of EDC.
           </p>
         </div>
 
-        <section className="rounded-2xl border border-[#c9a84c]/30 bg-white p-5 shadow-sm">
-          <h2 className="text-xl font-semibold">Create New Session</h2>
+        <section className="rounded-3xl border border-[#c9a84c]/30 bg-white p-6 shadow-sm">
+          <h2 className="text-2xl font-semibold">
+            Create Academic Session
+          </h2>
 
-          <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <div className="mt-5 grid gap-4 md:grid-cols-[1fr_auto]">
             <input
               value={sessionName}
-              onChange={(e) => setSessionName(e.target.value)}
-              placeholder="e.g. 2025/2026"
-              className="rounded-xl border border-[#c9a84c]/30 bg-[#fdfaf4] p-3 outline-none"
+              onChange={(e) =>
+                setSessionName(
+                  e.target.value
+                )
+              }
+              placeholder="e.g. 2026/2027"
+              className="rounded-2xl border border-[#c9a84c]/30 bg-[#fdfaf4] p-4 outline-none"
             />
 
             <button
               onClick={createSession}
               disabled={loading}
-              className="rounded-xl bg-[#2d2414] px-5 py-3 font-semibold text-white disabled:opacity-60"
+              className="rounded-2xl bg-[#0b1f3a] px-8 py-4 font-semibold text-white transition hover:bg-[#10294b] disabled:opacity-60"
             >
-              {loading ? "Saving..." : "Create Session"}
+              {loading
+                ? "Creating..."
+                : "Create Session"}
             </button>
+          </div>
+
+          <div className="mt-6 rounded-2xl border border-[#c9a84c]/20 bg-[#fdfaf4] p-5">
+            <p className="text-sm leading-7 text-[#6f6042]">
+              Every academic session
+              automatically carries:
+            </p>
+
+            <div className="mt-4 flex flex-wrap gap-3">
+              {semesterList.map(
+                (semester) => (
+                  <span
+                    key={semester}
+                    className="rounded-full border border-[#c9a84c]/30 bg-white px-4 py-2 text-xs font-bold uppercase tracking-[0.15em] text-[#0b1f3a]"
+                  >
+                    {semester}
+                  </span>
+                )
+              )}
+            </div>
           </div>
         </section>
 
-        <section className="space-y-4">
+        <section className="space-y-6">
           {sessions.map((session) => {
-            const sessionSemesters = semesters.filter(
-              (semester) =>
-                String(semester.academic_session_id) === String(session.id)
-            );
+            const sessionSemesters =
+              semesters.filter(
+                (semester) =>
+                  String(
+                    semester.academic_session_id
+                  ) ===
+                  String(session.id)
+              );
 
             return (
               <div
                 key={session.id}
-                className="rounded-2xl border border-[#c9a84c]/30 bg-white p-5 shadow-sm"
+                className="rounded-3xl border border-[#c9a84c]/30 bg-white p-6 shadow-sm"
               >
-                <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
+                <div className="flex flex-col justify-between gap-6 xl:flex-row xl:items-center">
                   <div>
-                    <h3 className="text-xl font-bold">
-                      {session.session_name}
+                    <div className="flex flex-wrap items-center gap-3">
+                      <h2 className="text-3xl font-bold text-[#0b1f3a]">
+                        {
+                          session.session_name
+                        }
+                      </h2>
+
                       {session.is_active && (
-                        <span className="ml-3 rounded-full bg-green-100 px-3 py-1 text-xs text-green-700">
-                          Active
+                        <span className="rounded-full border border-green-300 bg-green-50 px-4 py-2 text-xs font-bold uppercase tracking-[0.15em] text-green-700">
+                          Active Session
                         </span>
                       )}
-                    </h3>
+                    </div>
 
-                    <p className="mt-1 text-sm text-[#6f6042]">
-                      Manage admissions, registration, and semester openings.
+                    <p className="mt-3 max-w-2xl text-sm leading-7 text-[#6f6042]">
+                      Control semester
+                      availability,
+                      admissions,
+                      registration,
+                      and institutional
+                      academic flow.
                     </p>
                   </div>
 
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-3">
                     <button
-                      onClick={() => makeActive(session.id)}
-                      className="rounded-xl border border-[#2d2414] px-4 py-2 text-sm font-semibold"
+                      onClick={() =>
+                        makeActive(
+                          session.id
+                        )
+                      }
+                      className="rounded-2xl border border-[#0b1f3a] px-5 py-3 text-sm font-semibold text-[#0b1f3a]"
                     >
                       Set Active
                     </button>
@@ -243,13 +370,16 @@ export default function AdminSessionsPage() {
                           session.admissions_open
                         )
                       }
-                      className={`rounded-xl px-4 py-2 text-sm font-semibold ${
+                      className={`rounded-2xl px-5 py-3 text-sm font-semibold ${
                         session.admissions_open
                           ? "bg-green-100 text-green-700"
                           : "bg-red-100 text-red-700"
                       }`}
                     >
-                      Admissions {session.admissions_open ? "Open" : "Closed"}
+                      Admissions{" "}
+                      {session.admissions_open
+                        ? "Open"
+                        : "Closed"}
                     </button>
 
                     <button
@@ -260,64 +390,106 @@ export default function AdminSessionsPage() {
                           session.registration_open
                         )
                       }
-                      className={`rounded-xl px-4 py-2 text-sm font-semibold ${
+                      className={`rounded-2xl px-5 py-3 text-sm font-semibold ${
                         session.registration_open
                           ? "bg-green-100 text-green-700"
                           : "bg-red-100 text-red-700"
                       }`}
                     >
                       Registration{" "}
-                      {session.registration_open ? "Open" : "Closed"}
+                      {session.registration_open
+                        ? "Open"
+                        : "Closed"}
                     </button>
                   </div>
                 </div>
 
-                <div className="mt-5 grid gap-3 md:grid-cols-2">
-                  {sessionSemesters.map((semester) => (
-                    <div
-                      key={semester.id}
-                      className="rounded-xl border border-[#c9a84c]/20 bg-[#fdfaf4] p-4"
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <div>
-                          <h4 className="font-semibold">
-                            {semester.semester_name}
-                          </h4>
+                <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                  {sessionSemesters.map(
+                    (semester) => (
+                      <div
+                        key={semester.id}
+                        className="rounded-2xl border border-[#c9a84c]/20 bg-[#fdfaf4] p-5"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-xs font-bold uppercase tracking-[0.15em] text-[#c9a84c]">
+                              EDC Semester
+                            </p>
 
-                          <p className="mt-1 text-sm text-[#6f6042]">
-                            {semester.is_open ? "Open" : "Closed"}
-                          </p>
+                            <h3 className="mt-3 text-xl font-bold text-[#0b1f3a]">
+                              {
+                                semester.semester_name
+                              }
+                            </h3>
+
+                            <p className="mt-3 text-sm text-[#6f6042]">
+                              {semester.is_open
+                                ? "Open For Institutional Operations"
+                                : "Currently Closed"}
+                            </p>
+                          </div>
+
+                          <span
+                            className={`rounded-full px-3 py-2 text-[10px] font-bold uppercase tracking-[0.15em] ${
+                              semester.is_open
+                                ? "bg-green-100 text-green-700"
+                                : "bg-red-100 text-red-700"
+                            }`}
+                          >
+                            {semester.is_open
+                              ? "Open"
+                              : "Closed"}
+                          </span>
                         </div>
 
                         <button
                           onClick={() =>
-                            toggleSemester(semester.id, semester.is_open)
+                            toggleSemester(
+                              semester.id,
+                              semester.is_open
+                            )
                           }
-                          className={`rounded-xl px-4 py-2 text-sm font-semibold ${
+                          className={`mt-6 w-full rounded-2xl px-4 py-3 text-sm font-semibold ${
                             semester.is_open
-                              ? "bg-green-100 text-green-700"
-                              : "bg-red-100 text-red-700"
+                              ? "bg-red-100 text-red-700"
+                              : "bg-green-100 text-green-700"
                           }`}
                         >
-                          {semester.is_open ? "Close" : "Open"}
+                          {semester.is_open
+                            ? "Close Semester"
+                            : "Open Semester"}
                         </button>
                       </div>
-                    </div>
-                  ))}
-
-                  {sessionSemesters.length === 0 && (
-                    <p className="text-sm text-red-600">
-                      No semesters found for this session.
-                    </p>
+                    )
                   )}
                 </div>
+
+                {sessionSemesters.length ===
+                  0 && (
+                  <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 p-5 text-sm text-red-700">
+                    No semesters were
+                    found for this
+                    academic session.
+                  </div>
+                )}
               </div>
             );
           })}
 
           {sessions.length === 0 && (
-            <div className="rounded-2xl border border-dashed border-[#c9a84c]/40 bg-white p-8 text-center text-[#6f6042]">
-              No academic session created yet.
+            <div className="rounded-3xl border border-dashed border-[#c9a84c]/40 bg-white p-10 text-center">
+              <h3 className="text-2xl font-semibold text-[#0b1f3a]">
+                No Academic Session
+                Created
+              </h3>
+
+              <p className="mt-4 text-sm text-[#6f6042]">
+                Create your first
+                institutional session
+                to begin academic
+                operations.
+              </p>
             </div>
           )}
         </section>
