@@ -106,6 +106,19 @@ export default function InstructorLoginPage() {
             {loading ? "Signing In..." : "Login"}
           </button>
         </form>
+
+        <div className="mt-6 text-center">
+          <p className="text-sm text-[#1c2b3a]/60">
+            Interested in teaching with EDC?
+          </p>
+
+          <a
+            href="/instructor/apply"
+            className="mt-3 inline-block text-sm font-bold uppercase tracking-[0.15em] text-[#c9a84c]"
+          >
+            Apply as Instructor
+          </a>
+        </div>
       </section>
     </main>
   );
