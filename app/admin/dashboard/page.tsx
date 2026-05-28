@@ -4,6 +4,13 @@ import { createClient } from "@/utils/supabase/server";
 export default async function AdminDashboardPage() {
   const supabase = await createClient();
 
+  const { data: activeSession } =
+    await supabase
+      .from("academic_sessions")
+      .select("*")
+      .eq("is_active", true)
+      .single();
+
   const { count: studentsCount } =
     await supabase
       .from("profiles")
@@ -148,6 +155,13 @@ export default async function AdminDashboardPage() {
               Institutional Overview
             </h2>
           </div>
+
+          <a
+            href="/admin/sessions"
+            className="rounded-xl bg-[#0b1f3a] px-5 py-3 text-sm font-semibold text-white"
+          >
+            Manage Sessions
+          </a>
         </div>
 
         <div className="mt-10 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
@@ -157,8 +171,14 @@ export default async function AdminDashboardPage() {
             </p>
 
             <h3 className="mt-3 text-2xl font-semibold text-[#0b1f3a]">
-              2026/2027
+              {activeSession?.session_name ||
+                "No Active Session"}
             </h3>
+
+            <p className="mt-2 text-sm text-[#1c2b3a]/60">
+              {activeSession?.current_semester ||
+                "Semester Not Set"}
+            </p>
           </div>
 
           <div className="border border-[#c9a84c]/10 bg-[#fdfaf4] p-5">
