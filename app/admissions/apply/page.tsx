@@ -75,8 +75,7 @@ export default async function AdmissionApplicationPage() {
       salvation_experience: formData.get("salvation_experience") as string,
       reason_for_applying: formData.get("reason_for_applying") as string,
       passport_url: passportUrl,
-      status: "pending",
-      application_status: "pending",
+          application_status: "pending",
       updated_at: new Date().toISOString(),
     });
 
