@@ -9,7 +9,7 @@ export default async function AdmissionApplicationPage() {
   noStore();
   const supabase = await createClient();
 
-  const { data: intakes, error: intakesError } = await supabase
+  const { data: intakes } = await supabase
   .from("intake_batches")
   .select("id, name, academic_session, entry_level, entry_semester, registration_status")
   .eq("registration_status", "open")
