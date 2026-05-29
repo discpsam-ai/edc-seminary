@@ -16,6 +16,34 @@ export default async function AdmissionApplicationPage() {
     const supabase = await createClient();
 
     const intakeBatchId = formData.get("intake_batch_id") as string;
+    const passportFile = formData.get("passport") as File;
+
+    let passportUrl = "";
+
+    if (passportFile && passportFile.size > 0) {
+      const fileExt = passportFile.name.split(".").pop();
+      const fileName = `${Date.now()}-${Math.random()
+        .toString(36)
+        .substring(2)}.${fileExt}`;
+
+      const filePath = `passports/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("admission-passports")
+        .upload(filePath, passportFile);
+
+      if (uploadError) {
+        throw new Error(uploadError.message);
+      }
+
+      const {
+        data: { publicUrl },
+      } = supabase.storage
+        .from("admission-passports")
+        .getPublicUrl(filePath);
+
+      passportUrl = publicUrl;
+    }
 
     const { data: selectedIntake } = await supabase
       .from("intake_batches")
@@ -35,6 +63,7 @@ export default async function AdmissionApplicationPage() {
       ministry_background: formData.get("ministry_background") as string,
       salvation_experience: formData.get("salvation_experience") as string,
       reason_for_applying: formData.get("reason_for_applying") as string,
+      passport_url: passportUrl,
       application_status: "pending",
       updated_at: new Date().toISOString(),
     });
@@ -130,6 +159,23 @@ export default async function AdmissionApplicationPage() {
             placeholder="Why do you want to enroll in EDC?"
             className="min-h-36 border border-[#c9a84c]/30 bg-[#fdfaf4]/90 p-4 outline-none"
           />
+
+          <div className="grid gap-3">
+            <label className="text-sm font-semibold text-[#0b1f3a]">
+              Passport Photograph
+            </label>
+
+            <input
+              type="file"
+              name="passport"
+              accept="image/*"
+              className="border border-[#c9a84c]/30 bg-[#fdfaf4]/90 p-4"
+            />
+
+            <p className="text-sm text-[#1c2b3a]/60">
+              Upload a clear passport photograph. Recommended size: below 1MB.
+            </p>
+          </div>
 
           <button type="submit" className="btn-gold">
             Submit Application

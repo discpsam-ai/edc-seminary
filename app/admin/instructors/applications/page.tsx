@@ -1,4 +1,5 @@
 import AdminShell from "@/components/AdminShell";
+import { createAdminClient } from "@/utils/supabase/admin";
 import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
 
@@ -14,13 +15,22 @@ export default async function AdminInstructorApplicationsPage() {
     "use server";
 
     const supabase = await createClient();
+    const adminSupabase = createAdminClient();
 
     const applicationId = formData.get("application_id") as string;
-    const email = formData.get("email") as string;
-    const fullName = formData.get("full_name") as string;
+
+    const { data: application, error: applicationError } = await supabase
+      .from("instructor_applications")
+      .select("*")
+      .eq("id", applicationId)
+      .single();
+
+    if (applicationError || !application) {
+      throw new Error(applicationError?.message || "Application not found");
+    }
 
     const {
-      data: { user },
+      data: { user: reviewer },
     } = await supabase.auth.getUser();
 
     const year = new Date().getFullYear().toString().slice(-2);
@@ -31,37 +41,67 @@ export default async function AdminInstructorApplicationsPage() {
       .not("instructor_number", "is", null);
 
     const serial = String((count || 0) + 1).padStart(3, "0");
-
     const instructorNumber = `EDC/INS/${year}/${serial}`;
 
-    const { data: profile } = await supabase
+    const temporaryPassword = `EDC${year}${serial}@Instructor`;
+
+    let authUserId = "";
+
+    const { data: existingProfiles } = await supabase
       .from("profiles")
       .select("id")
-      .eq("email", email)
-      .single();
+      .eq("email", application.email)
+      .limit(1);
 
-    if (profile) {
-      await supabase
-        .from("profiles")
-        .update({
-          role: "instructor",
-          instructor_number: instructorNumber,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", profile.id);
+    if (existingProfiles && existingProfiles.length > 0) {
+      authUserId = existingProfiles[0].id;
+    } else {
+      const { data: createdUser, error: createUserError } =
+        await adminSupabase.auth.admin.createUser({
+          email: application.email,
+          password: temporaryPassword,
+          email_confirm: true,
+          user_metadata: {
+            full_name: application.full_name,
+            role: "instructor",
+          },
+        });
+
+      if (createUserError || !createdUser.user) {
+        throw new Error(
+          createUserError?.message || "Unable to create instructor login account"
+        );
+      }
+
+      authUserId = createdUser.user.id;
     }
+
+    await supabase.from("profiles").upsert({
+      id: authUserId,
+      full_name: application.full_name,
+      email: application.email,
+      phone: application.phone,
+      role: "instructor",
+      instructor_number: instructorNumber,
+      teaching_qualification: application.qualification,
+      instructor_passport_url: application.passport_url,
+      passport_url: application.passport_url,
+      updated_at: new Date().toISOString(),
+    });
 
     await supabase
       .from("instructor_applications")
       .update({
         application_status: "approved",
-        reviewed_by: user?.id,
+        reviewed_by: reviewer?.id,
         reviewed_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
       .eq("id", applicationId);
 
     revalidatePath("/admin/instructors/applications");
+    revalidatePath("/admin/instructors");
+    revalidatePath("/admin/courses");
   }
 
   async function rejectApplication(formData: FormData) {
@@ -137,6 +177,16 @@ export default async function AdminInstructorApplicationsPage() {
                   </span>
                 </div>
 
+                {application.passport_url && (
+                  <div className="mt-6">
+                    <img
+                      src={application.passport_url}
+                      alt={application.full_name}
+                      className="h-32 w-28 object-cover border border-[#c9a84c]/30 bg-white"
+                    />
+                  </div>
+                )}
+
                 <div className="mt-6 grid gap-5 md:grid-cols-2">
                   <div className="border border-[#c9a84c]/20 bg-white p-4">
                     <p className="text-xs font-bold uppercase tracking-[0.15em] text-[#1c2b3a]/50">
@@ -196,18 +246,6 @@ export default async function AdminInstructorApplicationsPage() {
                         type="hidden"
                         name="application_id"
                         value={application.id}
-                      />
-
-                      <input
-                        type="hidden"
-                        name="email"
-                        value={application.email}
-                      />
-
-                      <input
-                        type="hidden"
-                        name="full_name"
-                        value={application.full_name}
                       />
 
                       <button type="submit" className="btn-gold">

@@ -28,8 +28,7 @@ export default async function AssignInstructorCoursesPage() {
 
   const { data: activeSession } = await supabase
     .from("academic_sessions")
-    .select(
-      `
+    .select(`
       id,
       session_name,
       is_active,
@@ -38,8 +37,7 @@ export default async function AssignInstructorCoursesPage() {
         semester_name,
         is_open
       )
-    `
-    )
+    `)
     .eq("is_active", true)
     .maybeSingle();
 
@@ -61,8 +59,7 @@ export default async function AssignInstructorCoursesPage() {
 
   const { data: assignments, error } = await supabase
     .from("instructor_course_assignments")
-    .select(
-      `
+    .select(`
       *,
       profiles:instructor_id (
         full_name,
@@ -75,8 +72,7 @@ export default async function AssignInstructorCoursesPage() {
         level,
         semester
       )
-    `
-    )
+    `)
     .order("assigned_at", { ascending: false });
 
   async function assignCourse(formData: FormData) {
@@ -89,21 +85,10 @@ export default async function AssignInstructorCoursesPage() {
     const academicSession = formData.get("academic_session") as string;
     const semester = formData.get("semester") as string;
 
-    if (!instructorId) {
-      throw new Error("Please select an instructor.");
-    }
-
-    if (!courseId) {
-      throw new Error("Please select a course.");
-    }
-
-    if (!academicSession) {
-      throw new Error("No active academic session found.");
-    }
-
-    if (!semester) {
-      throw new Error("Please select a semester.");
-    }
+    if (!instructorId) throw new Error("Please select an instructor.");
+    if (!courseId) throw new Error("Please select a course.");
+    if (!academicSession) throw new Error("No active academic session found.");
+    if (!semester) throw new Error("Please select a semester.");
 
     const { data: course, error: courseError } = await supabase
       .from("courses")
@@ -111,9 +96,7 @@ export default async function AssignInstructorCoursesPage() {
       .eq("id", courseId)
       .single();
 
-    if (courseError || !course) {
-      throw new Error("Course not found.");
-    }
+    if (courseError || !course) throw new Error("Course not found.");
 
     const {
       data: { user },
@@ -121,7 +104,7 @@ export default async function AssignInstructorCoursesPage() {
 
     const { error } = await supabase
       .from("instructor_course_assignments")
-      .upsert(
+      .insert(
         {
           instructor_id: instructorId,
           course_id: courseId,
@@ -132,15 +115,59 @@ export default async function AssignInstructorCoursesPage() {
           assigned_by: user?.id,
           assigned_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
-        },
-        {
-          onConflict: "instructor_id,course_id,academic_session,semester",
         }
       );
 
-    if (error) {
-      throw new Error(error.message);
+    if (error) throw new Error(error.message);
+
+    revalidatePath("/admin/instructors/assign-courses");
+  }
+
+  async function assignAllCourses(formData: FormData) {
+    "use server";
+
+    const supabase = await createClient();
+
+    const instructorId = formData.get("bulk_instructor_id") as string;
+    const academicSession = formData.get("bulk_academic_session") as string;
+    const semester = formData.get("bulk_semester") as string;
+
+    if (!instructorId) throw new Error("Please select an instructor.");
+    if (!academicSession) throw new Error("No active academic session found.");
+    if (!semester) throw new Error("Please select a semester.");
+
+    const { data: allCourses, error: coursesError } = await supabase
+      .from("courses")
+      .select("id, code")
+      .eq("semester", semester);
+
+    if (coursesError) throw new Error(coursesError.message);
+
+    if (!allCourses || allCourses.length === 0) {
+      throw new Error("No courses found for this semester.");
     }
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    const rows = allCourses.map((course: any) => ({
+      instructor_id: instructorId,
+      course_id: course.id,
+      course_code: course.code,
+      academic_session: academicSession,
+      semester,
+      assignment_status: "active",
+      assigned_by: user?.id,
+      assigned_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }));
+
+    const { error } = await supabase
+  .from("instructor_course_assignments")
+  .insert(rows);
+
+    if (error) throw new Error(error.message);
 
     revalidatePath("/admin/instructors/assign-courses");
   }
@@ -158,17 +185,13 @@ export default async function AssignInstructorCoursesPage() {
 
           <div className="mt-5 border border-[#c9a84c]/20 bg-[#fdfaf4] p-4">
             <p className="text-sm font-semibold text-[#0b1f3a]">
-              Active Session:{" "}
-              {activeSession?.session_name || "No Active Session"}
+              Active Session: {activeSession?.session_name || "No Active Session"}
             </p>
 
             <div className="mt-2 space-y-1">
               {openSemesters.length > 0 ? (
                 openSemesters.map((semester: OpenSemester) => (
-                  <p
-                    key={semester.id}
-                    className="text-sm font-medium text-green-700"
-                  >
+                  <p key={semester.id} className="text-sm font-medium text-green-700">
                     {semester.semester_name} Open
                   </p>
                 ))
@@ -213,8 +236,7 @@ export default async function AssignInstructorCoursesPage() {
               {courses?.map((course: Course) => (
                 <option key={course.id} value={course.id}>
                   {course.code || "No Code"} — {course.title || "Untitled"} —{" "}
-                  {course.level || "No Level"} —{" "}
-                  {course.semester || "No Semester"}
+                  {course.level || "No Level"} — {course.semester || "No Semester"}
                 </option>
               ))}
             </select>
@@ -241,6 +263,62 @@ export default async function AssignInstructorCoursesPage() {
               Assign Course
             </button>
           </form>
+
+          <div className="mt-10 border-t border-[#c9a84c]/20 pt-8">
+            <h3 className="font-edc-serif text-3xl font-semibold text-[#0b1f3a]">
+              Assign All Courses
+            </h3>
+
+            <p className="mt-3 leading-7 text-[#1c2b3a]/70">
+              Use this when one instructor is available and should handle all courses for a selected semester.
+            </p>
+
+            <form action={assignAllCourses} className="mt-6 grid gap-5">
+              <input
+                type="hidden"
+                name="bulk_academic_session"
+                value={activeSession?.session_name || ""}
+              />
+
+              <select
+                name="bulk_instructor_id"
+                required
+                className="border border-[#c9a84c]/30 bg-[#fdfaf4]/90 p-4 outline-none"
+              >
+                <option value="">Select Instructor</option>
+
+                {instructors?.map((instructor: Instructor) => (
+                  <option key={instructor.id} value={instructor.id}>
+                    {instructor.full_name || "Unnamed Instructor"} —{" "}
+                    {instructor.instructor_number || "No Instructor ID"} —{" "}
+                    {instructor.email || "No Email"}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                name="bulk_semester"
+                required
+                className="border border-[#c9a84c]/30 bg-[#fdfaf4]/90 p-4 outline-none"
+              >
+                <option value="">Select Semester</option>
+
+                {openSemesters.map((semester: OpenSemester) => (
+                  <option key={semester.id} value={semester.semester_name}>
+                    {semester.semester_name}
+                  </option>
+                ))}
+              </select>
+
+              <button
+                type="submit"
+                className="btn-gold"
+                disabled={!activeSession || openSemesters.length === 0}
+              >
+                Assign All Courses to Instructor
+              </button>
+            </form>
+          </div>
         </div>
 
         <div className="border border-[#c9a84c]/20 bg-white/90 p-8">
@@ -273,9 +351,7 @@ export default async function AssignInstructorCoursesPage() {
 
                   <p className="mt-3 text-[#1c2b3a]/70">
                     Instructor:{" "}
-                    <strong>
-                      {assignment.profiles?.full_name || "Unnamed"}
-                    </strong>
+                    <strong>{assignment.profiles?.full_name || "Unnamed"}</strong>
                   </p>
 
                   <p className="mt-1 text-sm text-[#1c2b3a]/60">
