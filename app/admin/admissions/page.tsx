@@ -42,7 +42,7 @@ async function approveAdmission(formData: FormData) {
 
   if (!admission.email) throw new Error("Applicant email is missing.");
 
-  const temporaryPassword = generateTemporaryPassword();
+  const temporaryPassword = "EDC@2025";
 
   const { data: authData, error: authError } =
     await supabase.auth.admin.createUser({
