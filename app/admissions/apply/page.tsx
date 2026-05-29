@@ -1,16 +1,21 @@
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
+import { unstable_noStore as noStore } from "next/cache";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+
 export default async function AdmissionApplicationPage() {
+  noStore();
   const supabase = await createClient();
 
-  const { data: intakes } = await supabase
-    .from("intake_batches")
-    .select("id, name, academic_session, entry_level, entry_semester")
-    .eq("registration_status", "open")
-    .order("created_at", { ascending: false });
+  const { data: intakes, error: intakesError } = await supabase
+  .from("intake_batches")
+  .select("id, name, academic_session, entry_level, entry_semester, registration_status")
+  .eq("registration_status", "open")
+  .order("created_at", { ascending: false });
+
+
 
   async function submitApplication(formData: FormData) {
     "use server";
