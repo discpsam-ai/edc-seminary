@@ -15,8 +15,12 @@ export default async function AdmissionApplicationPage() {
 
     const supabase = await createClient();
 
-    const intakeBatchId = formData.get("intake_batch_id") as string;
+    const intakeBatchId = String(formData.get("intake_batch_id") || "");
     const passportFile = formData.get("passport") as File;
+
+    if (!intakeBatchId) {
+      throw new Error("Please select an open intake.");
+    }
 
     let passportUrl = "";
 
@@ -64,6 +68,7 @@ export default async function AdmissionApplicationPage() {
       salvation_experience: formData.get("salvation_experience") as string,
       reason_for_applying: formData.get("reason_for_applying") as string,
       passport_url: passportUrl,
+      status: "pending",
       application_status: "pending",
       updated_at: new Date().toISOString(),
     });
@@ -76,11 +81,11 @@ export default async function AdmissionApplicationPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#fdfaf4] px-6 py-20">
-      <section className="mx-auto max-w-4xl border border-[#c9a84c]/20 bg-white/90 p-8">
+    <main className="min-h-screen bg-[#fdfaf4] px-4 py-12 sm:px-6 sm:py-20">
+      <section className="mx-auto max-w-4xl overflow-visible border border-[#c9a84c]/20 bg-white/90 p-5 sm:p-8">
         <p className="section-label">EDC Admissions</p>
 
-        <h1 className="mt-3 font-edc-serif text-5xl font-semibold text-[#0b1f3a]">
+        <h1 className="mt-3 font-edc-serif text-4xl font-semibold text-[#0b1f3a] sm:text-5xl">
           Admission Application
         </h1>
 
@@ -89,12 +94,12 @@ export default async function AdmissionApplicationPage() {
           intake batch and provide your spiritual and academic details.
         </p>
 
-        <form action={submitApplication} className="mt-10 grid gap-5">
+        <form action={submitApplication} className="mt-10 grid gap-5 overflow-visible">
           <input
             name="full_name"
             required
             placeholder="Full Name"
-            className="border border-[#c9a84c]/30 bg-[#fdfaf4]/90 p-4 outline-none"
+            className="w-full rounded-lg border border-[#c9a84c]/30 bg-[#fdfaf4]/90 px-4 py-4 text-base outline-none"
           />
 
           <input
@@ -102,62 +107,68 @@ export default async function AdmissionApplicationPage() {
             type="email"
             required
             placeholder="Email Address"
-            className="border border-[#c9a84c]/30 bg-[#fdfaf4]/90 p-4 outline-none"
+            className="w-full rounded-lg border border-[#c9a84c]/30 bg-[#fdfaf4]/90 px-4 py-4 text-base outline-none"
           />
 
           <input
             name="phone"
             placeholder="Phone Number"
-            className="border border-[#c9a84c]/30 bg-[#fdfaf4]/90 p-4 outline-none"
+            className="w-full rounded-lg border border-[#c9a84c]/30 bg-[#fdfaf4]/90 px-4 py-4 text-base outline-none"
           />
 
           <div className="grid gap-5 md:grid-cols-2">
             <input
               name="country"
               placeholder="Country"
-              className="border border-[#c9a84c]/30 bg-[#fdfaf4]/90 p-4 outline-none"
+              className="w-full rounded-lg border border-[#c9a84c]/30 bg-[#fdfaf4]/90 px-4 py-4 text-base outline-none"
             />
 
             <input
               name="location"
               placeholder="Location / City"
-              className="border border-[#c9a84c]/30 bg-[#fdfaf4]/90 p-4 outline-none"
+              className="w-full rounded-lg border border-[#c9a84c]/30 bg-[#fdfaf4]/90 px-4 py-4 text-base outline-none"
             />
           </div>
 
           <select
             name="intake_batch_id"
             required
-            className="border border-[#c9a84c]/30 bg-[#fdfaf4]/90 p-4 outline-none"
+            className="block w-full rounded-lg border border-[#c9a84c]/30 bg-white px-4 py-4 text-base text-[#1c2b3a] outline-none"
           >
             <option value="">Select Open Intake</option>
 
-            {intakes?.map((intake: any) => (
-              <option key={intake.id} value={intake.id}>
-                {intake.name} — {intake.academic_session} —{" "}
-                {intake.entry_level} — {intake.entry_semester}
+            {intakes && intakes.length > 0 ? (
+              intakes.map((intake: any) => (
+                <option key={intake.id} value={intake.id}>
+                  {intake.name} - {intake.academic_session} -{" "}
+                  {intake.entry_level} - {intake.entry_semester}
+                </option>
+              ))
+            ) : (
+              <option value="" disabled>
+                No open intake available
               </option>
-            ))}
+            )}
           </select>
 
           <textarea
             name="salvation_experience"
             required
             placeholder="Briefly describe your salvation experience..."
-            className="min-h-36 border border-[#c9a84c]/30 bg-[#fdfaf4]/90 p-4 outline-none"
+            className="min-h-36 w-full rounded-lg border border-[#c9a84c]/30 bg-[#fdfaf4]/90 px-4 py-4 text-base outline-none"
           />
 
           <textarea
             name="ministry_background"
             placeholder="Briefly describe your ministry/church background..."
-            className="min-h-36 border border-[#c9a84c]/30 bg-[#fdfaf4]/90 p-4 outline-none"
+            className="min-h-36 w-full rounded-lg border border-[#c9a84c]/30 bg-[#fdfaf4]/90 px-4 py-4 text-base outline-none"
           />
 
           <textarea
             name="reason_for_applying"
             required
             placeholder="Why do you want to enroll in EDC?"
-            className="min-h-36 border border-[#c9a84c]/30 bg-[#fdfaf4]/90 p-4 outline-none"
+            className="min-h-36 w-full rounded-lg border border-[#c9a84c]/30 bg-[#fdfaf4]/90 px-4 py-4 text-base outline-none"
           />
 
           <div className="grid gap-3">
@@ -169,7 +180,7 @@ export default async function AdmissionApplicationPage() {
               type="file"
               name="passport"
               accept="image/*"
-              className="border border-[#c9a84c]/30 bg-[#fdfaf4]/90 p-4"
+              className="w-full rounded-lg border border-[#c9a84c]/30 bg-[#fdfaf4]/90 px-4 py-4 text-base"
             />
 
             <p className="text-sm text-[#1c2b3a]/60">
