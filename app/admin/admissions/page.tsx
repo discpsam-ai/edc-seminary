@@ -14,7 +14,7 @@ type Admission = {
   desired_level: string | null;
   desired_semester: string | null;
   intake_batch_id: string | null;
-  status: string | null;
+  application_status: string | null;
   created_at: string | null;
 };
 
@@ -66,7 +66,6 @@ async function approveAdmission(formData: FormData) {
     full_name: admission.full_name,
     email: admission.email,
     phone: admission.phone,
-    programme: admission.programme,
     passport_url: admission.passport_url,
     level: admission.desired_level,
     current_semester: admission.desired_semester,
@@ -83,10 +82,8 @@ async function approveAdmission(formData: FormData) {
   const { error: updateError } = await supabase
     .from("admissions")
     .update({
-      status: "approved",
-      auth_user_id: userId,
-      approved_at: new Date().toISOString(),
-    })
+  application_status: "approved",
+})
     .eq("id", admissionId);
 
   if (updateError) throw new Error(updateError.message);
@@ -107,9 +104,8 @@ async function rejectAdmission(formData: FormData) {
   const { error } = await supabase
     .from("admissions")
     .update({
-      status: "rejected",
-      rejected_at: new Date().toISOString(),
-    })
+  application_status: "rejected",
+})
     .eq("id", admissionId);
 
   if (error) throw new Error(error.message);
@@ -160,7 +156,7 @@ export default async function AdminAdmissionsPage() {
                 <th className="p-4">Programme</th>
                 <th className="p-4">Level</th>
                 <th className="p-4">Semester</th>
-                <th className="p-4">Status</th>
+                <th className="p-4">application_status</th>
                 <th className="p-4">Actions</th>
               </tr>
             </thead>
@@ -202,14 +198,14 @@ export default async function AdminAdmissionsPage() {
                   <td className="p-4 align-top">
                     <span
                       className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                        admission.status === "approved"
+                      admission.application_status === "approved"
                           ? "bg-green-100 text-green-700"
-                          : admission.status === "rejected"
+                          : admission.application_status === "rejected"
                           ? "bg-red-100 text-red-700"
                           : "bg-yellow-100 text-yellow-700"
                       }`}
                     >
-                      {admission.status || "pending"}
+                     {admission.application_status || "pending"}
                     </span>
                   </td>
 
