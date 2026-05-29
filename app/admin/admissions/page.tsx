@@ -66,8 +66,6 @@ async function approveAdmission(formData: FormData) {
     full_name: admission.full_name,
     email: admission.email,
     phone: admission.phone,
-    country: admission.country,
-    location: admission.location,
     programme: admission.programme,
     passport_url: admission.passport_url,
     level: admission.desired_level,
