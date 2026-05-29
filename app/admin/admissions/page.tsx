@@ -26,12 +26,9 @@ async function approveAdmission(formData: FormData) {
   "use server";
 
   const supabase = createAdminClient();
-
   const admissionId = String(formData.get("admission_id") || "");
 
-  if (!admissionId) {
-    throw new Error("Admission ID is missing.");
-  }
+  if (!admissionId) throw new Error("Admission ID is missing.");
 
   const { data: admission, error: admissionError } = await supabase
     .from("admissions")
@@ -43,9 +40,7 @@ async function approveAdmission(formData: FormData) {
     throw new Error(admissionError?.message || "Admission not found.");
   }
 
-  if (!admission.email) {
-    throw new Error("Applicant email is missing.");
-  }
+  if (!admission.email) throw new Error("Applicant email is missing.");
 
   const temporaryPassword = generateTemporaryPassword();
 
@@ -75,10 +70,11 @@ async function approveAdmission(formData: FormData) {
     location: admission.location,
     programme: admission.programme,
     passport_url: admission.passport_url,
-    desired_level: admission.desired_level,
-    desired_semester: admission.desired_semester,
+    level: admission.desired_level,
+    current_semester: admission.desired_semester,
     intake_batch_id: admission.intake_batch_id,
     roles: ["student"],
+    role: "student",
   });
 
   if (profileError) {
@@ -95,9 +91,7 @@ async function approveAdmission(formData: FormData) {
     })
     .eq("id", admissionId);
 
-  if (updateError) {
-    throw new Error(updateError.message);
-  }
+  if (updateError) throw new Error(updateError.message);
 
   revalidatePath("/admin/admissions");
   revalidatePath("/admin/students");
@@ -108,12 +102,9 @@ async function rejectAdmission(formData: FormData) {
   "use server";
 
   const supabase = createAdminClient();
-
   const admissionId = String(formData.get("admission_id") || "");
 
-  if (!admissionId) {
-    throw new Error("Admission ID is missing.");
-  }
+  if (!admissionId) throw new Error("Admission ID is missing.");
 
   const { error } = await supabase
     .from("admissions")
@@ -123,16 +114,13 @@ async function rejectAdmission(formData: FormData) {
     })
     .eq("id", admissionId);
 
-  if (error) {
-    throw new Error(error.message);
-  }
+  if (error) throw new Error(error.message);
 
   revalidatePath("/admin/admissions");
   redirect("/admin/admissions");
 }
 
 export default async function AdminAdmissionsPage() {
-
   const supabase = createAdminClient();
 
   const { data: admissions, error } = await supabase
@@ -172,8 +160,8 @@ export default async function AdminAdmissionsPage() {
                 <th className="p-4">Applicant</th>
                 <th className="p-4">Contact</th>
                 <th className="p-4">Programme</th>
-                <th className="p-4">Level/Semester</th>
-                <th className="p-4">Passport</th>
+                <th className="p-4">Level</th>
+                <th className="p-4">Semester</th>
                 <th className="p-4">Status</th>
                 <th className="p-4">Actions</th>
               </tr>
@@ -206,25 +194,11 @@ export default async function AdminAdmissionsPage() {
                   </td>
 
                   <td className="p-4 align-top">
-                    <p>{admission.desired_level || "No level"}</p>
-                    <p className="text-gray-500">
-                      {admission.desired_semester || "No semester"}
-                    </p>
+                    {admission.desired_level || "No level"}
                   </td>
 
                   <td className="p-4 align-top">
-                    {admission.passport_url ? (
-                      <a
-                        href={admission.passport_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-[#8a6a16] underline"
-                      >
-                        View passport
-                      </a>
-                    ) : (
-                      <span className="text-gray-400">No passport</span>
-                    )}
+                    {admission.desired_semester || "No semester"}
                   </td>
 
                   <td className="p-4 align-top">
@@ -242,41 +216,35 @@ export default async function AdminAdmissionsPage() {
                   </td>
 
                   <td className="p-4 align-top">
-                    {admission.status === "approved" ? (
-                      <p className="text-sm text-green-700">Approved</p>
-                    ) : admission.status === "rejected" ? (
-                      <p className="text-sm text-red-700">Rejected</p>
-                    ) : (
-                      <div className="flex flex-col gap-2">
-                        <form action={approveAdmission}>
-                          <input
-                            type="hidden"
-                            name="admission_id"
-                            value={admission.id}
-                          />
-                          <button
-                            type="submit"
-                            className="rounded-lg bg-green-700 px-4 py-2 text-white hover:bg-green-800"
-                          >
-                            Approve Admission
-                          </button>
-                        </form>
+                    <div className="flex flex-col gap-2">
+                      <form action={approveAdmission}>
+                        <input
+                          type="hidden"
+                          name="admission_id"
+                          value={admission.id}
+                        />
+                        <button
+                          type="submit"
+                          className="rounded-lg bg-green-700 px-4 py-2 text-white hover:bg-green-800"
+                        >
+                          Approve Admission
+                        </button>
+                      </form>
 
-                        <form action={rejectAdmission}>
-                          <input
-                            type="hidden"
-                            name="admission_id"
-                            value={admission.id}
-                          />
-                          <button
-                            type="submit"
-                            className="rounded-lg bg-red-600 px-4 py-2 text-white hover:bg-red-700"
-                          >
-                            Reject Admission
-                          </button>
-                        </form>
-                      </div>
-                    )}
+                      <form action={rejectAdmission}>
+                        <input
+                          type="hidden"
+                          name="admission_id"
+                          value={admission.id}
+                        />
+                        <button
+                          type="submit"
+                          className="rounded-lg bg-red-600 px-4 py-2 text-white hover:bg-red-700"
+                        >
+                          Reject Admission
+                        </button>
+                      </form>
+                    </div>
                   </td>
                 </tr>
               ))}
