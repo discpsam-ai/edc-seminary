@@ -6,53 +6,46 @@ import { useRouter } from "next/navigation";
 
 export default function StudentLoginPage() {
   const supabase = createClient();
-
   const router = useRouter();
 
   const [studentId, setStudentId] = useState("");
   const [password, setPassword] = useState("");
-
   const [error, setError] = useState("");
-
   const [loading, setLoading] = useState(false);
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
 
     setLoading(true);
-
     setError("");
+
+    const cleanStudentId = studentId.trim().toUpperCase();
+    const cleanPassword = password.trim();
 
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("*")
-      .eq("student_number", studentId)
+      .eq("student_number", cleanStudentId)
       .single();
 
     if (profileError || !profile?.email) {
       setError("Invalid Student ID");
-
       setLoading(false);
-
       return;
     }
 
-    const { error: loginError } =
-      await supabase.auth.signInWithPassword({
-        email: profile.email,
-        password,
-      });
+    const { error: loginError } = await supabase.auth.signInWithPassword({
+      email: profile.email,
+      password: cleanPassword,
+    });
 
     if (loginError) {
-      setError(loginError.message);
-
+      setError("Invalid login credentials");
       setLoading(false);
-
       return;
     }
 
     router.push("/portal/dashboard");
-
     router.refresh();
 
     setLoading(false);
@@ -61,9 +54,7 @@ export default function StudentLoginPage() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-[#f7f3ec] px-6 py-16">
       <section className="w-full max-w-md border border-[#c9a84c]/20 bg-white/90 p-8">
-        <p className="section-label">
-          Student Portal
-        </p>
+        <p className="section-label">Student Portal</p>
 
         <h1 className="mt-4 font-edc-serif text-5xl font-semibold text-[#0b1f3a]">
           Student Login
@@ -79,6 +70,9 @@ export default function StudentLoginPage() {
             required
             placeholder="Student ID"
             value={studentId}
+            autoCapitalize="characters"
+            autoCorrect="off"
+            spellCheck={false}
             onChange={(e) => setStudentId(e.target.value)}
             className="border border-[#c9a84c]/30 bg-[#fdfaf4] p-4 outline-none"
           />
@@ -88,21 +82,16 @@ export default function StudentLoginPage() {
             required
             placeholder="Password"
             value={password}
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
             onChange={(e) => setPassword(e.target.value)}
             className="border border-[#c9a84c]/30 bg-[#fdfaf4] p-4 outline-none"
           />
 
-          {error && (
-            <p className="text-sm text-red-600">
-              {error}
-            </p>
-          )}
+          {error && <p className="text-sm text-red-600">{error}</p>}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="btn-gold"
-          >
+          <button type="submit" disabled={loading} className="btn-gold">
             {loading ? "Signing In..." : "Login"}
           </button>
         </form>
