@@ -137,21 +137,43 @@ export default async function CourseRegistrationPage() {
         "academic_session"
       ) as string;
 
-    const existing = await supabase
-      .from("course_registrations")
-      .select("id")
-      .eq("student_id", studentId)
-      .eq("course_id", courseId)
-      .eq(
-        "academic_session",
-        academicSession
-      )
-      .eq("semester", semester)
-      .maybeSingle();
-
-    if (!existing.data) {
-      const { error } = await supabase
+    const { data: existing } =
+      await supabase
         .from("course_registrations")
+        .select("id")
+        .eq(
+          "student_id",
+          studentId
+        )
+        .eq(
+          "course_code",
+          courseCode
+        )
+        .eq(
+          "academic_session",
+          academicSession
+        )
+        .eq(
+          "semester",
+          semester
+        )
+        .maybeSingle();
+
+    if (existing) {
+      revalidatePath(
+        "/portal/course-registration"
+      );
+
+      redirect(
+        "/portal/course-registration"
+      );
+    }
+
+    const { error } =
+      await supabase
+        .from(
+          "course_registrations"
+        )
         .insert({
           student_id: studentId,
 
@@ -172,9 +194,8 @@ export default async function CourseRegistrationPage() {
             "registered",
         });
 
-      if (error) {
-        throw new Error(error.message);
-      }
+    if (error) {
+      throw new Error(error.message);
     }
 
     revalidatePath(
@@ -191,6 +212,10 @@ export default async function CourseRegistrationPage() {
 
     revalidatePath(
       "/portal/results"
+    );
+
+    redirect(
+      "/portal/course-registration"
     );
   }
 
@@ -313,7 +338,7 @@ export default async function CourseRegistrationPage() {
                       className="border border-[#c9a84c]/10 bg-[#fdfaf4] p-5"
                     >
                       <p className="section-label">
-                        {course.course_code}
+                        {course.code}
                       </p>
 
                       <h3 className="mt-3 font-edc-serif text-2xl font-semibold text-[#0b1f3a]">
@@ -375,7 +400,7 @@ export default async function CourseRegistrationPage() {
                               type="hidden"
                               name="course_code"
                               value={
-                                course.course_code
+                                course.code
                               }
                             />
 

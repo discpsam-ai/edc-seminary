@@ -17,21 +17,21 @@ export default async function PortalCoursesPage() {
       *,
       courses:course_id (
         id,
-        course_code,
+        code,
         title,
         description,
-        units,
+        credit_units,
         level,
         semester,
         material_url
       )
     `)
     .eq("student_id", user.id)
-    .order("created_at", { ascending: false });
+    .order("registered_at", { ascending: false });
 
   const totalUnits =
     registrations?.reduce((sum: number, item: any) => {
-      return sum + (item.courses?.units || 0);
+      return sum + (item.courses?.credit_units || 0);
     }, 0) || 0;
 
   return (
@@ -84,19 +84,15 @@ export default async function PortalCoursesPage() {
               Registered Courses
             </h2>
 
-            <button
-              onClick={() => window.print()}
+            <a
+              href="/portal/course-registration"
               className="border border-[#c9a84c]/30 px-6 py-4 text-xs font-bold uppercase tracking-[0.15em] text-[#0b1f3a]"
             >
-              Print Slip
-            </button>
+              Course Registration
+            </a>
           </div>
 
-          {error && (
-            <p className="mt-6 text-red-600">
-              {error.message}
-            </p>
-          )}
+          {error && <p className="mt-6 text-red-600">{error.message}</p>}
 
           {!registrations || registrations.length === 0 ? (
             <p className="mt-8 text-[#1c2b3a]/70">
@@ -112,11 +108,13 @@ export default async function PortalCoursesPage() {
                   <div className="flex flex-wrap items-start justify-between gap-4">
                     <div>
                       <p className="section-label">
-                        {registration.courses?.course_code}
+                        {registration.courses?.code ||
+                          registration.course_code ||
+                          "Course Code"}
                       </p>
 
                       <h3 className="mt-3 font-edc-serif text-2xl font-semibold text-[#0b1f3a]">
-                        {registration.courses?.title}
+                        {registration.courses?.title || "Registered Course"}
                       </h3>
 
                       <p className="mt-3 leading-7 text-[#1c2b3a]/70">
@@ -126,24 +124,32 @@ export default async function PortalCoursesPage() {
                     </div>
 
                     <span className="border border-green-300 bg-green-50 px-3 py-2 text-xs font-bold uppercase tracking-[0.15em] text-green-700">
-                      {registration.registration_status}
+                      {registration.registration_status || "registered"}
                     </span>
                   </div>
 
                   <div className="mt-5 grid gap-3 text-sm text-[#1c2b3a]/60 md:grid-cols-2">
                     <p>
                       Level:{" "}
-                      <strong>{registration.courses?.level}</strong>
+                      <strong>
+                        {registration.courses?.level ||
+                          registration.level ||
+                          "Not assigned"}
+                      </strong>
                     </p>
 
                     <p>
                       Semester:{" "}
-                      <strong>{registration.courses?.semester}</strong>
+                      <strong>
+                        {registration.courses?.semester ||
+                          registration.semester ||
+                          "Not assigned"}
+                      </strong>
                     </p>
 
                     <p>
                       Units:{" "}
-                      <strong>{registration.courses?.units || 0}</strong>
+                      <strong>{registration.courses?.credit_units || 0}</strong>
                     </p>
 
                     <p>

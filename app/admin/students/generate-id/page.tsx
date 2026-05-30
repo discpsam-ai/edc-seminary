@@ -1,5 +1,6 @@
-import { createClient } from "@/utils/supabase/server";
+import { createAdminClient } from "@/utils/supabase/admin";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import Link from "next/link";
 
 function generateStudentNumber(
@@ -15,7 +16,7 @@ function generateStudentNumber(
 }
 
 export default async function GenerateStudentIdPage() {
-  const supabase = await createClient();
+ const supabase = createAdminClient();
 
   const { data: students, error: studentsError } = await supabase
     .from("profiles")
@@ -35,7 +36,7 @@ export default async function GenerateStudentIdPage() {
   async function generateId(formData: FormData) {
     "use server";
 
-    const supabase = await createClient();
+    const supabase = createAdminClient();
 
     const studentId = formData.get("student_id") as string;
     const intakeBatchId = formData.get("intake_batch_id") as string;
@@ -88,6 +89,8 @@ export default async function GenerateStudentIdPage() {
     }
 
     revalidatePath("/admin/students/generate-id");
+revalidatePath("/admin/students");
+redirect("/admin/students/generate-id");
   }
 
   return (
